@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>Portfolio</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+
+<body>
+  <div class="title"></div>
+  
+  <entry>
+    <img class="header" src="assets/img/pixel0.png" />
+    <h2>Pixels, Shell Texturing & Grass Height</h2>
+    <p>Achieving tripple-A quality graphics isn't entirely feasible with just the limited time of one person, so choosing a distinct, pleasant, and lower-fidelity art-style is very important. To force myself to think more about the broad picture than the low-level details, I halved the display resolution, using my trusty old aliasing-pixelartify algorithm for a neat pixely look.</p>
+    <p>Now to the fun part: Moss. Well, shell texturing.</p>
+    <p>To supplement the grass and enable moss growth on rocks and other similar surfaces, we create a vegetation-height map that is a half-terrain-resolution approximation of the height of grass - or only moss, if the values are too low to allow grass to grow. We can now color the grass depending on the length to achieve some more visual interest.</p>
+    <p>For moss, we create two LODs of instanced heightmap textures with varying height attribute. We create a moss height, normal direction & color change texture that is statically used for all moss and sample the depth from this texture in the fragment shader to conditionally discard (I don't want to, but alpha blending would be a lot worse) fragments.</p>
+    <p>Giving the height channel some bumps here and there and sampling a different color depending on the moss height leaves us with a nice fluffy mossy texture that nicely complements the grass.</p>
+    <img src="assets/img/pixel1.png">
+  </entry>
+
+  <entry>
+    <img class="header" src="assets/img/grass0.jpg" />
+    <h2>Grass Rendering & Chunk View Culling</h2>
+    <p>Flat untextured terrain however isn't particularly pleasing to look at, so - after implementing a chunk view culling system and reducing the draw-calls for terrain rendering to one draw-call per chunk type and refactoring the renderer a bit, let's have a look at grass rendering.</p>
+    <p>I'm not the biggest fan of alpha textured grass rendering as the constant overdraw fragment discarding sounds very unpleasant to me. As modern GPUs are capable of rendering a lot of instanced geometry very quickly and having individual segmented blades of grass allows for nice curving grass in the wind, we'll use that approach. Depending on how close the chunk containing the grass is to the camera, we'll use a different LOD on the grass segmentation as even reasonably close chunks can visually represent blades of grass with just a single triangle without a perceptual loss in quality.</p>
+    <p>This doesn't cover chunks yet, that are further off in the distance, but depending on how well we can tune the shaders later on, we might be able to either render billboards with large amounts of grass, or even fake the existence of grass entirely with a decent grass-landscape texture.</p>
+  </entry>
+
+  <entry class="blue">
+    <img class="header" src="assets/img/scape6.jpg" />
+    <h2>Terrain Chunk Streaming & Atmospheric Effects</h2>
+    <p>In order to traverse such a large scale terrain, LOD & streaming need to be considered immediately. Chunks of different sizes are streamed into fixed-size textures and are dynamically loaded when needed.</p>
+    <p>Whenever a large chunks would contain a chunk with vertexes that are closer than a set distance from the camera, the chunk is split and the contained chunks of higher fidelity are streamed in.</p>
+    <p>To reduce the pop-in artifacts usually seen in even tripple-A productions, we use local maxima - rather than average terrain height - to construct LODs.</p>
+    <p>Obviously this leaves visible gaps in the landscape wherever multiple chunk-types meet, but we'll deal with specific meshes to solve this problem at a later date.</p>
+    <h3>A low LOD texture atlas</h3>
+    <img src="assets/img/atlas0.png">
+    <br>
+    <h2>Atmospheric Effects</h2>
+    <p>The sun position is now 'rotated' into the coordinate space mapped around the 'flat' planet and camera position using a vector alignment matrix:</p>
+    <code>
+      inline static matrix RotateAlignVectors(const vec3f fromNormalized, const vec3f ontoNormalized)
+ <br/>{
+ <br/>&ensp;&ensp;vec3f axis = vec3f::Cross(ontoNormalized, fromNormalized);
+ <br/>&ensp;&ensp;
+ <br/>&ensp;&ensp;const float_t cosA = vec3f::Dot(ontoNormalized, fromNormalized);
+ <br/>&ensp;&ensp;const float_t k = 1.0f / (1.0f + cosA);
+ <br/>&ensp;&ensp;
+ <br/>&ensp;&ensp;matrix result;
+ <br/>&ensp;&ensp;
+ <br/>&ensp;&ensp;result._11 = (axis.x * axis.x * k) + cosA;
+ <br/>&ensp;&ensp;result._12 = (axis.y * axis.x * k) - axis.z;
+ <br/>&ensp;&ensp;result._13 = (axis.z * axis.x * k) + axis.y;
+ <br/>&ensp;&ensp;result._21 = (axis.x * axis.y * k) + axis.z;
+ <br/>&ensp;&ensp;result._22 = (axis.y * axis.y * k) + cosA;
+ <br/>&ensp;&ensp;result._23 = (axis.z * axis.y * k) - axis.x;
+ <br/>&ensp;&ensp;result._31 = (axis.x * axis.z * k) - axis.y;
+ <br/>&ensp;&ensp;result._32 = (axis.y * axis.z * k) + axis.x;
+ <br/>&ensp;&ensp;result._33 = (axis.z * axis.z * k) + cosA;
+ <br/>&ensp;&ensp;result._44 = 1.f;
+ <br/>&ensp;&ensp;
+ <br/>&ensp;&ensp;return result;
+ <br/>}
+    </code>
+    <p>
+      The way the sun passes through the atmosphere is approximated with an iterative shader that draws an equirectangular view and approximates rayleigh and mie scattering with a fixed number of samples. The scale of the planetary system and atmosphere have been adjusted to achieve earth-like atmospheric conditions.
+    </p>
+    <img src="assets/img/sky0.png">
+  </entry>
+
+  <entry class="blue">
+    <img class="header" src="assets/img/scape4.jpg" />
+    <h2>Micro-Biome Extraction</h2>
+    <p>After the terrain has been generated and eroded, regions need to be classified into regions based on the physical properties of their surroundings. To calculate these biomes like various grass types wherever the top soil is grass a noise map can be sampled. However this isn't entirely accurate as especially regional & global elevation changes and water proximity can influence biome parameters significantly.</p>
+    <p>Therefore we compute a signed distance field of water and one that maps terrain height, blur the height map over a large area and then compute the local difference to an areas neighbors. This leaves us with the water map and the map shown above for local terrain elevation changes.</p>
+    <p>Using these two maps and a noise buffer, we can derive micro-biome features like mossy stones near water or in crests, small puddles can be turned to mud, large elevation change inhibit the growth of trees or tall grass, ...</p>
+    <img src="assets/img/scape5.jpg">
+  </entry>
+
+  <entry class="blue">
+    <img class="header" src="assets/img/scape2.jpg" />
+    <h2>Wind Erosion</h2>
+    <p>With our newly developed surface wind simulation, we can now erode the surface terrain. Terrain that's close to the wind height will be eroded more than terrain that's further from it and wind speeds influence how far particles are dragged when eroded. The various terrain layers have different properties of how easily they can be erroded by wind & water.</p>
+    <p>As the eroded particles are dragged through the wind, the terrain is iteratively checked for matching height as the particles slowly descend based on their weight.</p>
+    <p>Similarly to the wind simulation, eroded particles are added onto a separate buffer and are applied to the new terrain after all cells have completed their erosion procedure.</p>
+    <img src="assets/img/scape3.jpg">
+  </entry>
+
+  <entry>
+    <img class="header" src="assets/img/wind1.jpg" />
+    <h2>Simulating Wind</h2>
+    <p>In order to arrive at realistic wind conditions to drive wind erosion, both atmospheric and surface conditions must be simulated. The atmospheric wind simply boils down to</p>
+    <ul>
+      <li>Generally air is dragged in the opposite direction of the planetary rotation through the coriolis force.</li>
+      <li>The air in each atmospheric cell warms up based on solar energy reaching the surface (and slowly cools to the temperature of outer space when there's no incoming solar energy)</li>
+      <li>Based on the temperature and the air density at any position, calculate the pressure</li>
+      <li>Move air-mass (density) velocity around to attempt to equally distribute air pressure</li>
+    </ul>
+    <p>The last step can be applied iteratively to support fine-grained air movements. Whilst iterating the exiting wind buffer, resulting wind is accumulated in a separate buffer to be applied after all cells have been processed.</p>
+    <p>One trick that specifically helped simulating sub-cell movements over multiple iterations - by slightly breaking the laws of physics - was to multiply the wind speeds in cells that don't have enough wind speed to make any pressure move from one cell to the next. This eventually tips the scales and makes the wind in those low pressure cells travel small distances over large amounts of time consistently.</p>
+    <h3>Atmospheric Air Density and Wind Speed Vectors</h3>
+    <img src="assets/img/wind0.jpg">
+    <br>
+    <h2>Surface Wind</h2>
+    <p>Surface Wind derives its temperature from the reflectivity and temperature emission of the underlying meterial. Surface Wind can be imaginged as a sheet of cloth that's being dragged over the terrain surface. Wind Speeds slow down (in my implementation even reverse slightly) when moving against higher terrain. This may result in the wind height being raised at a given position, or the wind preferring another direction over the current brute-force approach.</p>
+    <p>Falling winds to the contrary even enjoy a slight speedup to their wind speeds. This results in pressure zones being separated by mountain ranges whilst wind bursts through the cracks in order to equalise the pressure on both sides.</p>
+    <p>Surface winds are slightly dragged along with the general atmospheric wind.</p>
+    <h3>Surface Air Density and Wind Speed Vectors</h3>
+    <img src="assets/img/wind2.jpg">
+  </entry>
+
+  <entry class="blue">
+    <h2>Orbital Dynamics</h2>
+    <p>In order to have semi-accurate climatic conditions to a terrain with only one and one cold zone, an somewhat excentric elliptic orbital path is needed. Solving orbital dynamics even with a fixed star that isn't affected by the satellites mass, proved quite difficult however.</p>
+    <p>In Polar Coordinated, the orbital distance from the origin at angle <mono>theta</mono> with orbital parameters <mono>a</mono> and <mono>b</mono> can be expressed like this:</p>
+    <code>
+     radius(theta) := (a * (1 - b * b)) / (1 + b * cos(theta))
+    </code>
+    <p>This alone doesn't help much however, as the velocity at each position can easily be calculated, but woulnd't easily translate to a closed form solution and I didn't want to resort to step-wise simulation that I wouldn't even want to depend on. However, I was able to derive a function <mono>angle(time)</mono> to derive the radius by pluggin the result into the <mono>radius</mono> function:</p>
+    <code>
+      angle(time) := 2 * atan(sqrt(-b / (b - 1) - 1 / (b - 1)) * tan((pi * combinedMass * time) / (2 * a) - pi * pi / (2 * a)))
+    </code>
+    <p>In order to arrive at a combined mass that actually produces a period of <mono>2 * pi</mono>, we have to calculate the mass from orbital parameter <mono>a</mono>:</p>
+    <code>
+      combinedMass(a) := (2 * a * pi / 2) / (pi * pi)
+    </code>
+    <p>As the combined mass of the two orbital bodies doesn't change with the system, it can be calculated upfront.</p>
+    <h3>Planets, Average Solar Energy on the Surface, Current Solar Energy</h3>
+    <img src="assets/img/planet0.png"/>
+  </entry>
+
+  <entry>
+    <img class="header" src="assets/img/scape0.jpg" />
+    <h2>Hydrolic Erosion</h2>
+    <p>The layered terrain can be eroded using simulated water-droplets that carry material based amounts of sediment around. Finding the path to the deepest reachable point (or until all water has evaporated) for each block of terrain is vastly faster than simulating only one step at a time, but produces much rougher terrain than stepwise erosion. Stepwise erosion smoothes out the terrain and forms large water streams that then decend down to the valleys, where the small crests created from the first few water droplets in the decent-per-droplet approach won't widen and will preferrably be used by later droplets that run down similar paths, not resulting in broadening of common water paths.</p>
+    <h3>Layered Terrain Before / After Water Erosion</h3>
+    <img src="assets/img/scape1.jpg" />
+  </entry>
+
+  <entry class="blue">
+    <img class="header" src="assets/img/layer0.jpg" />
+    <h2>Layer Based Terrain</h2>
+    <p>Terrain is built in layers, the bottom layer is non-erodable bedrock. Depending on a signed-distance field, a noise layer and two cubic slopes a certain height of terrain of a given layer will be added on top of the existing terrain. The signed distance field chooses the min and max value from the two cubic slopes (basically a min- and max height) and the noise value (between 0 and 1) is used to smoothly interpolate between those two values. The generated terrain is rough at first, but erosion will massively improve and shape those layers later.</p>
+    <code>
+      const float_t min = a_min * x * x * x + b_min * x * x + c_min * x + d_min;<br/>
+      const float_t max = a_max * x * x * x + b_max * x * x + c_max * x + d_max;<br/>
+      const float_t height = lerp(min, max, noiseValue);<br/>
+      <br/>
+      if (height > 0)<br/>
+      {<br/>
+        &ensp;&ensp;// deposit layer onto terrain.<br/>
+      }<br/>
+    </code>
+  </entry>
+</body>
+
+</html>

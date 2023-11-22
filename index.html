@@ -75,7 +75,7 @@
   <entry class="blue">
     <img class="header" src="assets/img/scape4.jpg" />
     <h2>Micro-Biome Extraction</h2>
-    <p>After the terrain has been generated and eroded, regions need to be classified into regions based on the physical properties of their surroundings. To calculate these biomes like various grass types wherever the top soil is grass a noise map can be sampled. However this isn't entirely accurate as especially regional & global elevation changes and water proximity can influence biome parameters significantly.</p>
+    <p>After the terrain has been generated and eroded, regions need to be classified into biomes based on the physical properties of their surroundings. To calculate these biomes like various grass types wherever the top soil is grass a noise map can be sampled. However this isn't entirely accurate as especially regional & global elevation changes and water proximity can influence biome parameters significantly.</p>
     <p>Therefore we compute a signed distance field of water and one that maps terrain height, blur the height map over a large area and then compute the local difference to an areas neighbors. This leaves us with the water map and the map shown above for local terrain elevation changes.</p>
     <p>Using these two maps and a noise buffer, we can derive micro-biome features like mossy stones near water or in crests, small puddles can be turned to mud, large elevation change inhibit the growth of trees or tall grass, ...</p>
     <img src="assets/img/scape5.jpg">
@@ -106,7 +106,7 @@
     <img src="assets/img/wind0.jpg">
     <br>
     <h2>Surface Wind</h2>
-    <p>Surface Wind derives its temperature from the reflectivity and temperature emission of the underlying meterial. Surface Wind can be imaginged as a sheet of cloth that's being dragged over the terrain surface. Wind Speeds slow down (in my implementation even reverse slightly) when moving against higher terrain. This may result in the wind height being raised at a given position, or the wind preferring another direction over the current brute-force approach.</p>
+    <p>Surface wind derives its temperature from the reflectivity and temperature emission of the underlying material. Surface Wind can be imaginged as a sheet of cloth that's being dragged over the terrain surface. Wind Speeds slow down (in my implementation even reverse slightly) when moving against higher terrain. This may result in the wind height being raised at a given position, or the wind preferring another direction over the current brute-force approach.</p>
     <p>Falling winds to the contrary even enjoy a slight speedup to their wind speeds. This results in pressure zones being separated by mountain ranges whilst wind bursts through the cracks in order to equalise the pressure on both sides.</p>
     <p>Surface winds are slightly dragged along with the general atmospheric wind.</p>
     <h3>Surface Air Density and Wind Speed Vectors</h3>
@@ -115,12 +115,12 @@
 
   <entry class="blue">
     <h2>Orbital Dynamics</h2>
-    <p>In order to have semi-accurate climatic conditions to a terrain with only one and one cold zone, an somewhat excentric elliptic orbital path is needed. Solving orbital dynamics even with a fixed star that isn't affected by the satellites mass, proved quite difficult however.</p>
-    <p>In Polar Coordinated, the orbital distance from the origin at angle <mono>theta</mono> with orbital parameters <mono>a</mono> and <mono>b</mono> can be expressed like this:</p>
+    <p>In order to have semi-accurate climatic conditions producing terrain with only one hot and one cold zone, an somewhat excentric elliptic orbital path with fine tuned rotational velocity and direction is required. Solving orbital dynamics formulas - even with a fixed star that isn't affected by the satellites mass - proved quite difficult however.</p>
+    <p>In Polar Coordinates, the orbital distance from the origin at angle <mono>theta</mono> with orbital parameters <mono>a</mono> and <mono>b</mono> can be expressed like this:</p>
     <code>
      radius(theta) := (a * (1 - b * b)) / (1 + b * cos(theta))
     </code>
-    <p>This alone doesn't help much however, as the velocity at each position can easily be calculated, but woulnd't easily translate to a closed form solution and I didn't want to resort to step-wise simulation that I wouldn't even want to depend on. However, I was able to derive a function <mono>angle(time)</mono> to derive the radius by pluggin the result into the <mono>radius</mono> function:</p>
+    <p>This alone doesn't help much however, as the velocity at each position can easily be calculated, but woulnd't  translate to a closed form solution and I didn't want to resort to step-wise simulation that'd be hard to rely on or accurately predict with different time steps. So, I was able to construct a function <mono>angle(time)</mono> to derive the radius by pluggin the result into the <mono>radius</mono> function:</p>
     <code>
       angle(time) := 2 * atan(sqrt(-b / (b - 1) - 1 / (b - 1)) * tan((pi * combinedMass * time) / (2 * a) - pi * pi / (2 * a)))
     </code>
@@ -128,7 +128,7 @@
     <code>
       combinedMass(a) := (2 * a * pi / 2) / (pi * pi)
     </code>
-    <p>As the combined mass of the two orbital bodies doesn't change with the system, it can be calculated upfront.</p>
+    <p>As the combined mass of the two orbital bodies doesn't change with the system, it can be calculated on initialization when setting the other orbital parameters.</p>
     <h3>Planets, Average Solar Energy on the Surface, Current Solar Energy</h3>
     <img src="assets/img/planet0.png"/>
   </entry>

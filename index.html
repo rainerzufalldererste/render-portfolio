@@ -11,6 +11,22 @@
 <body>
   <div class="title"></div>
   
+  <entry class="blue">
+    <img class="header" src="assets/img/atlas1.png" />
+    <h2>Fast Texture Atlas for Procedural Geometry</h2>
+    <p>Since world chunks are going to be represented with consistent, but procedural geometry, we need an efficient way of generating texture information for chunks to make manual changes and unique-looking locations possible. To sample and store the corresponding texture, we need an efficient way of generating texture coordinates for our procedural geometry.</p>
+    <p>As many existing texture atlas implementations aren't particularly fast or assume that the geometry already comes with UV partitioning and texture coordinates that only need to be assembled into one big atlas, I chose to implement a new texture atlas system for the engine.</p>
+    <p>The foundation of the texture atlas is a coverage-quadtree where nodes are either empty, partially-covered or full. Nodes are stored in a large buffer as there's no need to stream information on demand. The last layer is merely represented as a large bitmap, rather than the actual nodes containing information about the pixel contents. Utilizing this coverage-quadtree it's fairly straightforward to check if a certain amount of space is currently available in the atlas.</p>
+    <p>The atlas procedure consists of two steps:</p>
+    <h3>Setup</h3>
+    <p>Add all triangles with 3d position and vertex indexes to the atlas. The atlas calculates the side lengths and angles of the triangle and takes note of existing triangles that share an edge with the current one.</p>
+    <h3>Texture Coordinate Generation</h3>
+    <p>After all triangles have been added, they are first sorted by area. Then chunks of triangles are attempted to be added to the atlas branching out from the initial large triangle's edges.</p>
+    <p>There's some special cases that have to be handled here, like when all three vertexes of a triangle are already present in the atlas and connecting them into a new triangle would result in a reasonable approximation of sizes and angles in respect to the original 3d geometry. Likewise, in order to ensure that the resulting areas don't get out of hand with curved geometry, as angles are used to construct the 2d triangles in the texture atlas and the resulting area may slowly creep up or down in size compared to their 3d counterparts, mismatching triangles are rejected from the current batch and will either be added separately or as part of another triangle-cluster.</p>
+    <p>Whenever no more connecting triangles would fit into the area available in the texture atlas, triangle bounds are marked as covered and we move on to the next possible collection of triangles - starting with the next largest triangle that hasn't been placed yet.</p>
+    <p>Obviously this doesn't result in optimal utililzation of the texture atlas, especially as the bounding rectangle of a triangle is a terrible estimate of it's actual coverage, but this comes with a large performance benefit, as no triangle rasterization is required and the texture generation part can be offloaded to the GPU.</p>
+  </entry>
+  
   <entry>
     <img class="header" src="assets/img/pixel0.png" />
     <h2>Pixels, Shell Texturing & Grass Height</h2>

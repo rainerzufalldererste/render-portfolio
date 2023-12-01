@@ -10,6 +10,26 @@
 
 <body>
   <div class="title"></div>
+
+  <entry class="blue">
+    <img class="header" src="assets/img/atlas2.png" />
+    <h2>Improving and Optimizing the Texture Atlas</h2>
+    <p>The original implementation was already capable of processing hundreds of thousands of triangles per second, but the utilization of the texture area wasn't particularly good, as the coverage quadtree initially preferred placing triangle clusters at high-layer node positions. This left arbitrarily sized holes in the quadtree that are neither particularly easy to find, when looking for available space for future clusters nor necessarily good spots to place clusters into, as the total available area is quickly fragmented by the first couple of clusters.</p>
+    <p>We'd much prefer clusters to be placed closer to existing clusters, so we'll modify the atlas slightly: After the final dimensions have been found, we allow the quadtree to attempt to move the current bounds to the top left by one node per layer if possible. This achieves much better atlas coverage - still not optimal, but improved to the point that models with double the unit-size can consistently fit into the atlas now. Apart from the coverage benefits, for some models this ends up positively impacting the runtime performance as well, as it's much faster to find empty spots with the improved coverage.</p>
+    <p>After a bunch of smaller optimization (mostly bloom-filters to avoid costlier randomish-memory-access-dependent-conditionals) we're somewhere between handling <b>500k - 1M Triangles per Second</b> on a single thread.</p>
+    <h3>Stanford Dragon Texture Coordinates & Model Render</h3>
+    <img src="assets/img/atlas3.png">
+    <p>To actually get a decent performance benchmark of the texture atlas, I fed it the entire stanford dragon model (<b>871k Triangles</b>), as well as a bunch of other large standard models (like a simplified version of Stanford Lucy).</p>
+    <code>
+      2.01443 s (432,422 triangles per second) without moving cluster bounds to the top-left<br>
+      0.87905 s (990,936 triangles per second) with moving cluster bounds to the top-left
+    </code>
+    <p>Although, with the simplified Stanford Lucy model however (28k Triangles), the old method appears still to be faster - probably because of the larger variance in terms of triangle area:</p>
+    <code>
+      0.02538 s (1,105,358 triangles per second)  without moving cluster bounds to the top-left<br>
+      0.05534 s (506,846.8 triangles per second)  with moving cluster bounds to the top-left
+    </code>
+  </entry>
   
   <entry class="blue">
     <img class="header" src="assets/img/atlas1.png" />

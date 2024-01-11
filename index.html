@@ -12,6 +12,36 @@
   <div class="title"></div>
 
   <entry class="blue">
+    <video class="header" loop autoplay="true" muted="true">
+      <source src="assets/vid/blended_terrain.mp4" type="video/mp4">
+    </video>
+    <h2>Procedurally generated PBR textures</h2>
+    <p>To fill our procedurally generated worlds with unique looking environments, we render the corresponding colors for a given region directly into the texture atlas.</p>
+    <p>As material indexes are directly passed to the shader, alongside the world-position of the corresponding terrain, we can select the correct type of texture and procedurally generate the values to the atlas. This results in a lot of variety, even if the same material is used:</p>
+    <br/>
+    <table>
+      <tr><th>Snowy Rocks</th><th>Ice</th></tr>
+      <tr>
+        <td>
+          <video class="table" loop autoplay="true" muted="true">
+            <source src="assets/vid/snowy_rocks.mp4" type="video/mp4">
+          </video>
+        </td>
+        <td>
+          <video class="table" loop autoplay="true" muted="true">
+            <source src="assets/vid/ice.mp4" type="video/mp4">
+          </video>
+        </td>
+      </tr>
+    </table>
+    <p>Blending is done on by simply applying a noise function to the barycentric coordinates that are used to fetch the per-vertex material index in the fragment shader from a texture. Sadly it's currently not possible to use different noise patterns for different kinds of material combinations, but the current noise pattern results in very pleasing material transitions already (see video in the header)</p>
+    <p>This way we can create a wide variety of procedural textures and selectively apply them to the underlying terrain. These are all of the material types we currently offer:</p>
+    <video loop autoplay="true" muted="true">
+      <source src="assets/vid/materials.mp4" type="video/mp4">
+    </video>
+  </entry>
+
+  <entry class="blue">
     <img class="header" src="assets/img/atlas2.png" />
     <h2>Improving and Optimizing the Texture Atlas</h2>
     <p>The original implementation was already capable of processing hundreds of thousands of triangles per second, but the utilization of the texture area wasn't particularly good, as the coverage quadtree initially preferred placing triangle clusters at high-layer node positions. This left arbitrarily sized holes in the quadtree that are neither particularly easy to find, when looking for available space for future clusters nor necessarily good spots to place clusters into, as the total available area is quickly fragmented by the first couple of clusters.</p>

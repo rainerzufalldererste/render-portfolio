@@ -96,7 +96,7 @@ entry.red ::selection {
   background-color: #5a4533;
 }
 
-img.header {
+img.header, video.header {
   max-width: calc(100% + 72pt);
   margin: -16pt -36pt 10pt;
   border-top-left-radius: 12pt;
@@ -113,7 +113,7 @@ entry.red img.header {
   border-bottom-color: hsl(23.1, 26%, 60.8%);
 }
 
-img {
+img, video {
   max-width: calc(100%);
   margin: 20pt auto 10pt;
   box-shadow: 2pt 2pt 8pt #0002;
@@ -152,4 +152,8 @@ mono {
   padding: 0pt 4pt 1pt 4pt;
   font-family: Consolas, monospace;
   user-select: all;
+}
+
+video.table {
+  width: 100%;
 }

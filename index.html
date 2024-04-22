@@ -11,6 +11,24 @@
 <body>
   <div class="title"></div>
 
+  <entry class="green">
+    <img class="header" src="assets/img/voxel0.png" />
+    <h2>Hardware Voxelization</h2>
+    <p>To be able to cheaply trace rays through the rendered scene, all static geometry is hardare voxlizied through a clever combination of multisample anti-aliasing (MSAA) and a geometry shader that maximizes rasterized surface area.</p>
+    <p>As the color-resolution of the voxelized scene doesn't need to be particularly high or temporally stable, voxel colors are dithered and logarithmically encoded.</p>
+    <p>Performant shading is provided through a world-space-clustering of the voxelized area, which works very similarly to the view-space clustering discussed previously, but instead of splitting the view-frustum into smaller pieces, the entire world-space in voxelizer range is split into regions, approximated by bounding spheres (if the voxelized area doesn't rotate, the bounding sphere calculation only needs to happen <b>once</b>, as all subsequent transforms are merely translations of the pre-existing clusters), then the bounding spheres are intersected with the light frustums in a cpu-side lighting pre-pass and stored in a separate lookup table.</p>
+    <img src="assets/img/voxel1.png">
+  </entry>
+
+  <entry class="blue">
+    <img class="header" src="assets/img/cluster0.png" />
+    <h2>Clustered Deferred Lighting</h2>
+    <p>To significantly reduce the number of required shadow map lookups in a fragment shader, the view frustum can be subdivided into many small frustums in a pre-process (which we approximate by their bounding sphere). We can now check for the intersection of the light-view-frustum and view-frustum-segment-bounding-sphere and reference the relevant light indices of a given segment in a small lookup table.</p>
+    <p>Retrieving the corresponding cluster index in the fragment shader is very straight-forward, as the only information required to resolve the fragment to a cluster is the screenspace texture coordinate and linearized depth ratio between the near and far plane. All of these inputs are already commonplace in deferred shading setups.</p>
+    <p>Additionally, such a lookup can easily be utilized to implement a basic volumetric lighting shader.</p>
+    <img src="assets/img/cluster1.png">
+  </entry>
+
   <entry class="blue">
     <video class="header" loop autoplay="true" muted="true">
       <source src="assets/vid/blended_terrain.mp4" type="video/mp4">

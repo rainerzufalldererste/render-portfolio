@@ -14,8 +14,8 @@
   <entry class="green">
     <img class="header" src="assets/img/gi0.jpg" />
     <h2>Single Bounce Voxel Traced Global Ilumination</h2>
-    <p>Now, that we've voxelized our shaded scene, the main deferred pass can be followed up by an additive global ilumination pass. In this pass we take the same g-buffers as inputs as in the regular deferred shaing pass, but instead we take the world-position as a starting point, move slightly (with a slight random offset) into the normal of that surface, add some random rotation to the direction vector (based on material roughness) and trace through the voxelized geometry until we either run out of steps (in this case, we assume, that we've hit the skybox and sample from it), or we've hit a shaded or unshaded populated voxel, in which case we derive the color from said voxel.</p>
-    <p>Even just sampling with one ray per pixel results in reasonably smooth results when viewed at sufficiently high framerates. This will eventually be smoothed out by TAA, so screenshots don't look horribly noisy.</p>
+    <p>Now, that we've voxelized our shaded scene, the main deferred pass can be followed up by an additively blended global ilumination pass. In this pass we use the same g-buffers as inputs as in the regular deferred shading pass, but instead of looking up lights and shading based on surface color and normal, we take the world-position as a starting point, move slightly (with a small random offset) into the normal of that surface, reflect the camera-to-world-space-vector at the surface normal, add some random rotation to the direction vector (based on material roughness) and trace through the voxelized geometry until we either run out of steps (in this case, we assume, that we've hit the skybox and sample from it), or we've hit a shaded or unshaded populated voxel, in which case we derive the color from said voxel.</p>
+    <p>Even just sampling with one ray per pixel results in reasonably smooth results when viewed at sufficiently high framerates. This will eventually be smoothed out by TAA, so screenshots won't end up looking horribly noisy in the final version.</p>
     <img src="assets/img/gi1.jpg">
     <br>
     <h2>Effective Voxel Tracing</h2>
@@ -32,9 +32,9 @@
       <li>Take the unit up-vector (<i>[0, 0, -1]</i> in our case)</li>
       <li>Randomly rotate it in x and y direction (or whatever two directions aren't up in your preferred coordinate system)</li>
       <li>Generate a mapping matrix, that rotates the unit up-vector onto our original vector using the previously discussed <b>RotateAlignVectors</b> function.</li>
-      <li>Transform the rotated up vector with the mapping matrix</li>
+      <li>Transform the rotated up-vector with the mapping matrix</li>
     </ol>
-    <p>As this doesn't actually rotate arbitrary vectors but merely aligns the rotated vector with the up vector, this approach doesn't suffer from the same issues as more straightforward.</p>
+    <p>As this doesn't actually rotate arbitrary vectors but merely aligns the rotated vector with the up-vector, this approach doesn't suffer from the same issues as more straightforward implementations.</p>
   </entry>
 
   <entry class="green">

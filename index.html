@@ -266,6 +266,32 @@
       }<br/>
     </code>
   </entry>
+
+  <script>
+    var active_target = null;
+    var color_lut = { green: 'rgb(86, 105, 101)', red: 'rgb(71, 62, 51)', blue: 'rgb(70, 94, 107)' };
+
+    function scroll_callback() {
+      var target = null;
+      var elements = document.getElementsByTagName('entry');
+
+      for (var x of elements) {
+        if (x.getBoundingClientRect().y < screen.height / 2)
+          target = x;
+      }
+
+      if (active_target != target) {
+        var class_name = target.className;
+        
+        if (class_name == '')
+          class_name = 'green';
+
+        document.body.style.backgroundColor = color_lut[class_name];
+      }
+    }
+
+    document.addEventListener('scroll', scroll_callback);
+  </script>
 </body>
 
 </html>

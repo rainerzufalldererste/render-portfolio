@@ -1,13 +1,16 @@
 body {
   background: #41605d;
+  background-color: #41605d;
   color: #fff;
   font-family: 'Segoe UI', 'Monserrat', sans-serif;
-  margin: 5pt 20pt;
+  padding: 5pt 20pt;
   background-image: url('img/bg.png');
   background-size: cover;
   background-repeat: no-repeat;
   background-attachment: fixed;
   background-blend-mode: multiply;
+  transition-duration: 2s;
+  transition-property: background-color;
 }
 
 ::selection {
@@ -105,11 +108,11 @@ img.header, video.header {
   display: initial;
 }
 
-entry.blue img.header {
+entry.blue img.header, entry.blue video.header {
   border-bottom-color: hsl(190.5, 18.7%, 58%);
 }
 
-entry.red img.header {
+entry.red img.header, entry.red video.header {
   border-bottom-color: hsl(23.1, 26%, 60.8%);
 }
 
@@ -131,7 +134,7 @@ code {
   display: block;
   border-left: 3pt solid #52756f;
   color: #dceadd;
-  overflow-x: scroll;
+  overflow-x: auto;
   margin: 10pt 0;
 }
 
@@ -156,4 +159,28 @@ mono {
 
 video.table {
   width: 100%;
+}
+
+/* iphone X , XS, 11 Pro */
+@media only screen and (min-device-width: 350px) and (max-device-height: 950px) and ((-webkit-min-device-pixel-ratio: 2)) {
+  body {
+    margin: 0;
+    padding: 0;
+  }
+
+  div.title {
+    height: 65vh;
+    width: 90vw;
+    margin-bottom: -5vh;
+  }
+
+  entry {
+    padding: 1pt 15pt 5pt !important;
+    max-width: calc(100vw - 15pt) !important;
+  }
+
+  img.header, video.header {
+    max-width: 100vw;
+    margin: -2pt -16pt;
+  }
 }

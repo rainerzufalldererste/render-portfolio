@@ -11,15 +11,60 @@
 <body>
   <div class="title"></div>
 
+  <entry class="blue">
+    <img class="header" src="assets/img/decim0.png" />
+    <h2>Border-Alternating Terrain LODs</h2>
+    <p>With connected geometry - like terrain geometry - simply disecting the model into tiles and providing various LODs for each tile (with larger tile sizes for lower quality LODs) unfortunately leads to problems whenever different LOD layers meet, as with a naive approach LOD levels would disagree at their borders about the level of fidelity. Forcing higher quality rims onto lower quality levels leads to an escalation, where even the lowest quality LODs would need to provide the highest quality borders, even though they would never actually border any of the highest quality levels, but as every lower level needs to be able to connect to a higher and lower quality level seamlessly, this forces highest quality borders onto <b>all</b> layers, which will increase the geometric detail of the lowest-quality LODs so much, that it entirely defeats the purpose of having LOD levels in the first place, as all of the detail is spent on irrelevant high-fidelity borders.</p>
+    <img class="small" src="assets/img/decim1.png">
+    <br>
+    <p>In order to resolve this, LOD levels can't share borders across <b>all</b> layers. This makes streaming LODs and generating LODs a lot more complex, but completely eliminates the issue at hand: Let's assume we have this lowest-quality <mono>LOD0</mono> of our terrain.</p>
+    <img class="small" src="assets/img/lod0.png">
+    <br>
+    <p>If we want to load a segment of <mono>LOD0</mono>, we need to split it into its four children, as otherwise we'd end up rendering some segments twice: Once with <mono>LOD0</mono> and more with <mono>LOD1</mono>.</p>
+    <img class="small" src="assets/img/lod1.png">
+    <br>
+    <p>Now, to address the issue discussed above, we need to choose a different boundary, at which the lower level lods line up, so let's lock vertices at the dark-turquoise lines to match the fidelity of <mono>LOD2</mono>.</p>
+    <img class="small" src="assets/img/lod2.png">
+    <br>
+    <p>Let's assume the worst case: We're interested in more detail in the selected tile of <mono>LOD2</mono>. Simply loading in this tile, we would disagree with the neighboring tiles of <mono>LOD1</mono> on the level-of-fidelity at the two borders highlighted in white.</p>
+    <img class="small" src="assets/img/lod3.png">
+    <br>
+    <p>To address this, loading the tile highlighted in white <b>forces</b> the turquoise tiles to be loaded at the same LOD, as they share the same dark-turquoise square.</p>
+    <img class="small" src="assets/img/lod4.png">
+    <br>
+    <p>In order to again address the issue of sharing boundaries between LOD levels, we force the vertices on the dark-green lines to match the vertices at <mono>LOD3</mono>.</p>
+    <img class="small" src="assets/img/lod5.png">
+    <br>
+    <p>Let's again assume one of the more interesting cases, and let's say we want to load a higher quality LOD at the tile highlighted in green. Similar as before, this leads to a disagreement on the level of fidelity on the borders highlighed in white.</p>
+    <img class="small" src="assets/img/lod6.png">
+    <br>
+    <p>As discussed before, loading in the tile highlighted in white <b>forces</b> the tiles in green to be loades as well. Actually <b>any</b> of these 4 tiles being loaded would <b>force</b> the remaining 3 tiles to be loaded in as well.</p>
+    <img class="small" src="assets/img/lod7.png">
+    <br>
+    <p>As two of the parent nodes of those nodes haven't been loaded in already, this also forces <b>those parent nodes</b> to be loaded in at a higher LOD as well, namely <mono>LOD2</mono>.</p>
+    <img class="small" src="assets/img/lod8.png">
+    <br>
+    <p>Implementing this intra-tile dependency isn't actually as tricky as it may seem, as it's always very straightforward to determine, which of the neighboring tiles need to be loaded in as well. A simple look-up-table suffices to store the vectors to the requires neighboring tiles being a certain child-index of a parent tile:</p>
+    <code>
+static const vec2i8 siblings_from_child_idx[4][3]{<br>
+&emsp;&emsp;{{-1, -1}, {0, -1}, {-1, 0}}, // top left<br>
+&emsp;&emsp;{{0, -1}, {1, -1}, {1, 0}}, // top right<br>
+&emsp;&emsp;{{-1, 0}, {-1, 1}, {0, 1}}, // bottom left<br>
+&emsp;&emsp;{{1, 0}, {0, 1}, {1, 1}} // bottom right<br>
+};
+    </code>
+    <p>Now one can simply recursively iterate over the root chunk, splitting every tile that is sufficiently close and loading in all sibling tiles that need to be loaded alongside a given child.</p>
+  </entry>
+
   <entry class="green">
     <img class="header" src="assets/img/gi0.jpg" />
-    <h2>Single Bounce Voxel Traced Global Ilumination</h2>
-    <p>Now, that we've voxelized our shaded scene, the main deferred pass can be followed up by an additively blended global ilumination pass. In this pass we use the same g-buffers as inputs as in the regular deferred shading pass, but instead of looking up lights and shading based on surface color and normal, we take the world-position as a starting point, reflect the camera-to-world-space-vector at the surface normal, move slightly (with a small random offset) into the derived direction (until we're no longer in the vicinity of neighboring voxels), add some random rotation to the direction vector (based on material roughness) and trace through the voxelized geometry until we either run out of steps (in this case, we assume, that we've hit the skybox and sample from it), or we've hit a shaded or unshaded populated voxel, in which case we derive the color from said voxel.</p>
+    <h2>Single Bounce Voxel Traced Global Illumination</h2>
+    <p>Now, that we've voxelized our shaded scene, the main deferred pass can be followed up by an additively blended global illumination pass. In this pass we use the same g-buffers as inputs as in the regular deferred shading pass, but instead of looking up lights and shading based on surface color and normal, we take the world-position as a starting point, reflect the camera-to-world-space-vector at the surface normal, move slightly (with a small random offset) into the derived direction (until we're no longer in the vicinity of neighboring voxels), add some random rotation to the direction vector (based on material roughness) and trace through the voxelized geometry until we either run out of steps (in this case, we assume, that we've hit the skybox and sample from it), or we've hit a shaded or unshaded populated voxel, in which case we derive the color from said voxel.</p>
     <p>Even just sampling with one ray per pixel results in reasonably smooth results when viewed at sufficiently high framerates. This will eventually be smoothed out by TAA, so screenshots won't end up looking horribly noisy in the final version.</p>
     <img src="assets/img/gi1.jpg">
     <br>
     <h2>Effective Voxel Tracing</h2>
-    <p>Given a voxel position <b>pos</b> (i.e. <i>[1, 4, 7]</i> in the voxel field <i>[0, 0, 0] ~ [10, 10, 10]</i>) and direction <b>dir</b>, with the sampled voxel being <b>cpos = pos + t * dir</b>, we can immediately transition to the next voxel by using the following basic formula:</p>
+    <p>Given a voxel position <mono>pos</mono> (i.e. <mono>[1, 4, 7]</mono> in the voxel field <mono>[0, 0, 0] ~ [10, 10, 10]</mono>) and direction <b>dir</b>, with the sampled voxel being <mono>cpos = pos + t * dir</mono>, we can immediately transition to the next voxel by using the following basic formula:</p>
     <code>
       vec3 delta = vec3(1) - fract(cpos);<br>
       vec3 delta_scaled = delta / dir;<br>
@@ -29,7 +74,7 @@
     <h2>Generating Randomly Rotated Vectors For Rough Surfaces</h2>
     <p>Randomly rotating arbitrary vectors can be somewhat cumbersome, we use the following approach:</p>
     <ol>
-      <li>Take the unit up-vector (<i>[0, 0, -1]</i> in our case)</li>
+      <li>Take the unit up-vector (<mono>[0, 0, -1]</mono> in our case)</li>
       <li>Randomly rotate it in x and y direction (or whatever two directions aren't up in your preferred coordinate system)</li>
       <li>Generate a mapping matrix, that rotates the unit up-vector onto our original vector using the previously discussed <b>RotateAlignVectors</b> function.</li>
       <li>Transform the rotated up-vector with the mapping matrix</li>

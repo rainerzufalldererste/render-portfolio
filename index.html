@@ -12,10 +12,16 @@
   <div class="title"></div>
 
   <entry class="blue">
+    <img class="header" src="assets/img/decim7.jpg" />
+    <h2>Mesh Decimation by Triangle Collapse</h2>
+    <p>As our Vertex-Elimination Decimation had too many caveats to be used as a general purpose decimation algorithm - and even ran into problems with our target of terrain decimation - we'll have to come up with a different solution. So, let's try to address the largest problems we ran into: Dependency on &quot;nice&quot; geometry, that we'd end up ruining eventually anyways & needing to do extra steps to fix vertex-ordering in triangles, if requested.</p>
+  </entry>
+
+  <entry class="blue">
     <img class="header" src="assets/img/decim2.jpg" />
     <h2>Mesh Decimation by Vertex Elimination</h2>
     <p>Since Border-Alternating Terrain LODs require full control over <b>which</b> triangles are decimated, a custom mesh decimation algorithm is needed - and even if not, it'd be very convenient to have a fast, reliable &amp; flexible way of decimation at our finger tips.</p>
-    <p>So decimating a mesh by eliminating the least-relevant vertices seemed like a novel & fast solution to the problem. But first, how do we want to eliminate those least-relevant vertices?</p>
+    <p>So decimating a mesh by eliminating the least-relevant vertices seemed like a novel & fast solution to the problem. But first, how do we want to eliminate those least-relevant vertices? <gray>[Cover Image: <a href="https://sketchfab.com/3d-models/grabfigur-3d50bc5f798f44d39e8030d3b752360e">CC BY-NC 4.0</a>]</gray></p>
     <img class="small" src="assets/img/decim3.png">
     <br>
     <p>Let's assume, we have this geometry-fragment, and we've determined, that the tip of this shape is the vertex we'd like to eliminate. In order to remove said vertex from our object, we have to ensure, that all neighboring vertices that previously connected to the tip do now connect to one another. So, by observing the vertices in the triangles that touch our chosen vertex, we can construct the polygon(s) of resulting area. This polygon can now simply be triangulated and our vertex can be removed entirely.</p>
@@ -39,7 +45,7 @@
     <p>This required an incredibly fast chunked list data-structure to be written, which allows for blazingly fast random removals & inserts (removing old error values in a sorted list, inserting new error values at the correct position) and a bunch of other little tricks.</p>
     <br>
     <h3>Complications</h3>
-    <p>What should now be somewhat apparent from the Performance Output above is, that many of the vertices needed to be skipped, as it would've been too complex to triangulate the resulting geometry. This usually isn't as terrible with smaller models, but heavily impacts the flexibility of this algorithm. What can be somewhat worked around, but isn't particularly pleasing about this approach is, that triangle vertex-ordering (which is sometimes used to determine normal directions) isn't automatically preserved and needs to be <i>fixed</i> during the decimation process, if this behaviour is relevant.</p>
+    <p>What should now be somewhat apparent from the Performance Output above is, that many of the vertices needed to be skipped, as it would've been too complex to triangulate the resulting geometry. This usually isn't as terrible with smaller models, but heavily impacts the flexibility of this algorithm. What can be somewhat worked around, but isn't particularly pleasing about this approach is, that triangle vertex-ordering (which is sometimes used to determine normal directions and allows for front- or backface culling) isn't automatically preserved and needs to be <i>fixed</i> during the decimation process, if this behaviour is relevant.</p>
     <img src="assets/img/decim6.jpg">
   </entry>
 

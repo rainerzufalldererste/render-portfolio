@@ -15,6 +15,28 @@
     <img class="header" src="assets/img/decim7.jpg" />
     <h2>Mesh Decimation by Triangle Collapse</h2>
     <p>As our Vertex-Elimination Decimation had too many caveats to be used as a general purpose decimation algorithm - and even ran into problems with our target of terrain decimation - we'll have to come up with a different solution. So, let's try to address the largest problems we ran into: Dependency on &quot;nice&quot; geometry, that we'd end up ruining eventually anyways & needing to do extra steps to fix vertex-ordering in triangles, if requested.</p>
+    <p>So how about if we don't start with vertices or lines - which may be part of complex polygons, but rather with triangles: Simply picking a triangle and collapsing it onto its barycenter should allow us to decimate even the most complex of meshes - with the downside, that with every collapse operation, we necessarily introduce a certain amount of inaccuracy, which may carry over into future collapses.</p>
+    <img src="assets/img/decim8.png">
+    <br>
+    <p>We can simply treat all of a triangle's vertices as references to the same remaining now position adjusted result-vertex and ensure that all of their distinct neighbors reference this replacement vertex instead. If a neighbor triangle shares more than one vertex with our current triangle it can also be removed. We would assume triangle vertex order to stay consistent, as we're simply collapsing three vertices into one and don't really create any new vertices, but as no vertex position is "safe" from our decimation, it may occur, that triangles just happen to be collapsed into new positions that result in a flip of a triangle's vertex-order direction.</p>
+    <p>Our goal of restricting which vertices remain in place is slightly more difficult here, as we need to either not collapse any triangles that feature vertices that may not be moved or - if only one vertex may not be moved - collapse onto that vertex. In practice both of those strategies aren't flawless, especially since our mesh-generation scenario has to deal with <b>a ton</b> of open edges that may not be moved and need to line up exactly with another meshes vertices - and the better of the two strategies happens to be the "not touching triangles with immutable vertices" one, which ends up severely limiting the level of decimation possible from a given input set of partially locked vertices.</p>
+    <br>
+    <h3>Error Calculation</h3>
+    <p>Again, we'll need an error metric to prioritize triangles that collapse with the least amount of visual difference, but yet again this is fairly simple: Simply summing up the area of the 3d pyramid between the collapsed and non-collapsed triangle for each of the affected triangles (except the collapsed one) suffices.</p>
+    <br>
+    <h3>Performance</h3>
+    <p>Triangle-Collapse is unfortunately quite a lot slower than Vertex-Elimination, but still pretty fast. To collapse the upper body of a high-resolution antique statue scan to 1/256 the vertex count we get the following metrics:</p>
+    <code>
+      Error Calculation: 1,579,609 tris / 790,872 verts in 0.58253 s (2,711,622.5 tris /s).<br>
+      Error Sorting: 0.13659 s (11,564,442 /s).<br>
+      Triangle Collapse: 787,256 verts / 1,573,441 tris in 7.59792 s (103,614.7 verts /s).<br><br>
+      Decimated: 790,872 verts, 1,579,609 tris to 3,616 verts, 6,168 tris. (removed 787,256 verts, 1,573,441 tris)
+    </code>
+    <p>The performance of Triangle-Collapse also benefits from the same chunked list data-structure, as implemented for Vertex-Elimination.</p>
+    <br>
+    <h3>Complications</h3>
+    <p>As already discussed, although <b>much</b> more flexible than Vertex-Elimination, Triangle-Collapse isn't without it's flaws. However, these are mostly limited to triangle vertex-ordering and necessarily introducing new vertex positions with every triangle collapse, so all-in-all it may be very much suitable for some use-cases. Triangle-Collapse can produce almost painterly features and is sometimes able to preserve sharp details much longer than other competing strategies, but unfortunately it wasn't a perfect match for ours.</p>
+    <img src="assets/img/decim9.jpg">
   </entry>
 
   <entry class="blue">

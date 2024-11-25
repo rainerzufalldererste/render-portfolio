@@ -12,6 +12,38 @@
   <div class="title"></div>
 
   <entry class="blue">
+    <img class="header" src="assets/img/decim2.jpg" />
+    <h2>Mesh Decimation by Vertex Elimination</h2>
+    <p>Since Border-Alternating Terrain LODs require full control over <b>which</b> triangles are decimated, a custom mesh decimation algorithm is needed - and even if not, it'd be very convenient to have a fast, reliable &amp; flexible way of decimation at our finger tips.</p>
+    <p>So decimating a mesh by eliminating the least-relevant vertices seemed like a novel & fast solution to the problem. But first, how do we want to eliminate those least-relevant vertices?</p>
+    <img class="small" src="assets/img/decim3.png">
+    <br>
+    <p>Let's assume, we have this geometry-fragment, and we've determined, that the tip of this shape is the vertex we'd like to eliminate. In order to remove said vertex from our object, we have to ensure, that all neighboring vertices that previously connected to the tip do now connect to one another. So, by observing the vertices in the triangles that touch our chosen vertex, we can construct the polygon(s) of resulting area. This polygon can now simply be triangulated and our vertex can be removed entirely.</p>
+    <img class="small" src="assets/img/decim4.png">
+    <br>
+    <p>As simple as that may seem, this is much harder to implement in practice, that it may seem. Polygon triangulation in 3D isn't really a thing if the vertices don't all lie on a flat plane and even 2D polygon triangulation isn't trivial at all. As we're merely evaulating the suitability of this approach, we'll simply ignore those cases for now, and disallow any vertices from being eliminated if this would result in such a horrible case.</p>
+    <p>Regarding our goal of being able to leave singular vertices untouched, to line up with higher-fidelity LODs, this can be achieved very easily here, as the decimation procedure happens <b>per-vertex</b> anyways.</p>
+    <br>
+    <h3>Error Calculation</h3>
+    <p>In order to prioritize vertices that result in minimal change to the mesh, we need to define an error function. Fortunately, this is rather easy: The error of removing a the vertex at the tip can be formulated as the area between the re-triangulated base and the tip. As there's no singular valid triangulation of a polygon, this calculation unfortunately has to be repeated for all vertices and can't be blindly carried over to neighbors, as they may end up with a different triangulation, that would result in a different error value. To demonstrate, that not only <b>one</b> valid triangulation exists, let's consider the case of the following opening and its <b>two different</b> triangulations:</p>
+    <img class="small" src="assets/img/decim5.png">
+    <br>
+    <h3>Performance</h3>
+    <p>This approach is actually blazingly fast, even when forced to re-triangulate the resulting areas from the perspective of each vertex. To decimate the Statue pictured at the top of this entry to the point where all vertex eliminations would result in horrific polygons, this is what we end up with:</p>
+    <code>
+      Error Calculation (incl. triangulation of base): 632,974 tris in 0.06161 s (3,449,320 non-skipped /s).<br>
+      Error Sorting: 0.02669 s (11,859,484 /s).<br>
+      Elimination & Re-Triangulation for 150,081 verts: 0.60876 s (246,536.4 /s).<br><br>
+      Decimated 316,481 verts, 632,974 tris to 166,400 verts, 332,812 tris. (removed 15,0081 verts, 300,162 tris)
+    </code>
+    <p>This required an incredibly fast chunked list data-structure to be written, which allows for blazingly fast random removals & inserts (removing old error values in a sorted list, inserting new error values at the correct position) and a bunch of other little tricks.</p>
+    <br>
+    <h3>Complications</h3>
+    <p>What should now be somewhat apparent from the Performance Output above is, that many of the vertices needed to be skipped, as it would've been too complex to triangulate the resulting geometry. This usually isn't as terrible with smaller models, but heavily impacts the flexibility of this algorithm. What can be somewhat worked around, but isn't particularly pleasing about this approach is, that triangle vertex-ordering (which is sometimes used to determine normal directions) isn't automatically preserved and needs to be <i>fixed</i> during the decimation process, if this behaviour is relevant.</p>
+    <img src="assets/img/decim6.jpg">
+  </entry>
+
+  <entry class="blue">
     <img class="header" src="assets/img/decim0.png" />
     <h2>Border-Alternating Terrain LODs</h2>
     <p>With connected geometry - like terrain geometry - simply disecting the model into tiles and providing various LODs for each tile (with larger tile sizes for lower quality LODs) unfortunately leads to problems whenever different LOD layers meet, as with a naive approach LOD levels would disagree at their borders about the level of fidelity. Forcing higher quality rims onto lower quality levels leads to an escalation, where even the lowest quality LODs would need to provide the highest quality borders, even though they would never actually border any of the highest quality levels, but as every lower level needs to be able to connect to a higher and lower quality level seamlessly, this forces highest quality borders onto <b>all</b> layers, which will increase the geometric detail of the lowest-quality LODs so much, that it entirely defeats the purpose of having LOD levels in the first place, as all of the detail is spent on irrelevant high-fidelity borders.</p>
@@ -46,14 +78,14 @@
     <br>
     <p>Implementing this intra-tile dependency isn't actually as tricky as it may seem, as it's always very straightforward to determine, which of the neighboring tiles need to be loaded in as well. A simple look-up-table suffices to store the vectors to the requires neighboring tiles being a certain child-index of a parent tile:</p>
     <code>
-static const vec2i8 siblings_from_child_idx[4][3]{<br>
-&emsp;&emsp;{{-1, -1}, {0, -1}, {-1, 0}}, // top left<br>
-&emsp;&emsp;{{0, -1}, {1, -1}, {1, 0}}, // top right<br>
-&emsp;&emsp;{{-1, 0}, {-1, 1}, {0, 1}}, // bottom left<br>
-&emsp;&emsp;{{1, 0}, {0, 1}, {1, 1}} // bottom right<br>
-};
+      static const vec2i8 siblings_from_child_idx[4][3]{<br>
+      &emsp;&emsp;{{-1, -1}, {0, -1}, {-1, 0}}, // top left<br>
+      &emsp;&emsp;{{0, -1}, {1, -1}, {1, 0}}, // top right<br>
+      &emsp;&emsp;{{-1, 0}, {-1, 1}, {0, 1}}, // bottom left<br>
+      &emsp;&emsp;{{1, 0}, {0, 1}, {1, 1}} // bottom right<br>
+      };
     </code>
-    <p>Now one can simply recursively iterate over the root chunk, splitting every tile that is sufficiently close and loading in all sibling tiles that need to be loaded alongside a given child.</p>
+    <p>Now one can simply recursively iterate over tiles by starting at the root, splitting every tile that is sufficiently close and loading in all sibling tiles that need to be loaded alongside a given child.</p>
   </entry>
 
   <entry class="green">

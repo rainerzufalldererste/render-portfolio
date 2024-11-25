@@ -12,6 +12,12 @@
   <div class="title"></div>
 
   <entry class="blue">
+    <img class="header" src="assets/img/decim10.jpg" />
+    <h2>Mesh Decimation by Edge Collapse</h2>
+    <p>Triangle-Collapse may be a terrific Mesh Decimation methedology for some scenarios, but for our specific requirements (Terrain LODs with certain immutable vertices at the edge) it isn't optimal as its caveats lie exactly in the areas that hurt the most here.</p>
+  </entry>
+
+  <entry class="blue">
     <img class="header" src="assets/img/decim7.jpg" />
     <h2>Mesh Decimation by Triangle Collapse</h2>
     <p>As our Vertex-Elimination Decimation had too many caveats to be used as a general purpose decimation algorithm - and even ran into problems with our target of terrain decimation - we'll have to come up with a different solution. So, let's try to address the largest problems we ran into: Dependency on &quot;nice&quot; geometry, that we'd end up ruining eventually anyways & needing to do extra steps to fix vertex-ordering in triangles, if requested.</p>

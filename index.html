@@ -12,9 +12,33 @@
   <div class="title"></div>
 
   <entry class="blue">
+    <img class="header" src="assets/img/decim11.jpg" />
+    <h2>Comparing Triangle-Collapse and Edge-Collapse</h2>
+    <p>Triangle-Collapse may be a terrific Mesh Decimation methedology for some scenarios, but for our specific requirements (Terrain LODs with certain immutable vertices at the edge) it isn't optimal as its caveats lie exactly in the areas that hurt the most here.</p>
+    <p><gray>[Model of the Cover Image: Eber by noe-3d.at is licensed under Creative Commons Attribution-NonCommercial]</gray></p>
+  </entry>
+
+  <entry class="blue">
     <img class="header" src="assets/img/decim10.jpg" />
     <h2>Mesh Decimation by Edge Collapse</h2>
-    <p>Triangle-Collapse may be a terrific Mesh Decimation methedology for some scenarios, but for our specific requirements (Terrain LODs with certain immutable vertices at the edge) it isn't optimal as its caveats lie exactly in the areas that hurt the most here.</p>
+    <p>Triangle-Collapse may be a terrific Mesh Decimation methedology for some scenarios, but for our specific requirements (Terrain LODs with certain immutable vertices at the edge) it isn't optimal as its caveats lie exactly in the areas that hurt the most. So, let's take our &quot;Collapse&quot;-Strategy one step back and - rather than collapsing entire triangles into a single vertex, merely collapse a single edge at a time.</p>
+    <p>Given the similarity to Triangle-Collapse, the implementation follows along the same lines: Pick an edge, update all triangles that touched the removed vertex to point to the remaining vertex instead and optionally update the remaining vertex position to a new position. We can choose to either collapse onto the center position of the edge, or choose the more relevant vertex (in our case usually the immutable one) of the two positions. If a triangle contains both of the vertices, it can be removed entirely.</p>
+    <img src="assets/img/decim12.png">
+    <br>
+    <h3>Performance</h3>
+    <p>Edge-Collapse is unfortunately yet again a bit slower than Triangle-Collapse and Vertex-Elimination. To collapse the upper body of a high-resolution antique statue scan to 1/256 the vertex count we get the following metrics:</p>
+    <code>
+      Error Calculation: 2,370,474 edges / 790,872 verts in 9.19001 s (257,940 edges /s).<br>
+      Edge Reference Sorting: 0.02447 s (32,316,578 /s).<br>
+      Error Sorting:  0.21137 s (11,214,596 /s).<br>
+      Triangle Collapse: Removed 787,729 verts / 1573,439 tris in 18.53234 s (42,505 verts /s).<br><br>
+      Decimated: 790,872 verts, 1,579,609 tris to 3,143 verts, 6,170 tris.
+    </code>
+    <p>This is unfortunately quite a lot slower for large models, but for our use case of decimating a relatively small and low-complexity terrain geometry-fragments, this should suffice.</p>
+    <br>
+    <h3>Complications</h3>
+    <p>Edge-Collapse isn't really more flexible, but more robust than Triangle-Collapse. Sure, like Triangle-Collapse is necessarily introduces averaged vertex positions into the mesh, but this didn't really cause any trouble with vertex-order or massive differences in our scenarios yet. Sure, it's much slower - especially than the blazingly fast Vertex-Elimination, but it's robust and doesn't catch on fire if the source geometry isn't exactly to the specific tastes of the algorithm.</p>
+    <p><gray>[Model of the Cover Image: Relief Depiction of Ma'at by IPCH Digitization Lab is licensed under Creative Commons Attribution]</gray></p>
   </entry>
 
   <entry class="blue">
@@ -33,12 +57,18 @@
     <h3>Performance</h3>
     <p>Triangle-Collapse is unfortunately quite a lot slower than Vertex-Elimination, but still pretty fast. To collapse the upper body of a high-resolution antique statue scan to 1/256 the vertex count we get the following metrics:</p>
     <code>
-      Error Calculation: 1,579,609 tris / 790,872 verts in 0.58253 s (2,711,622.5 tris /s).<br>
+      Error Calculation: 1,579,609 tris / 790,872 verts in 0.58253 s (2,711,622 tris /s).<br>
       Error Sorting: 0.13659 s (11,564,442 /s).<br>
-      Triangle Collapse: 787,256 verts / 1,573,441 tris in 7.59792 s (103,614.7 verts /s).<br><br>
-      Decimated: 790,872 verts, 1,579,609 tris to 3,616 verts, 6,168 tris. (removed 787,256 verts, 1,573,441 tris)
+      Triangle Collapse: Removed 787,256 verts / 1,573,441 tris in 7.59792 s (103,614 verts /s).<br><br>
+      Decimated: 790,872 verts, 1,579,609 tris to 3,616 verts, 6,168 tris.
     </code>
-    <p>The performance of Triangle-Collapse also benefits from the same chunked list data-structure, as implemented for Vertex-Elimination.</p>
+    <p>The performance of Triangle-Collapse also benefits from the same chunked list data-structure, as implemented for Vertex-Elimination. For a more direct comparison, here's the metrics from running a light 1/8 decimation on the same model as in the Vertex-Elimination entry.</p>
+    <code>
+      Error Calculation: 632,974 tris / 316,481 verts in 0.23238 s (2,723,874.8 tris /s).<br>
+      Error Sorting: 0.05267 s (12,018,053 /s).<br>
+      Triangle Collapse: Removed 276,830 verts / 553,854 tris in 2.21628 s (124,907.4 verts /s).<br><br>
+      Decimated: 316,481 verts, 632,974 tris tris to 39,651 verts, 79,120 tris.
+    </code>
     <br>
     <h3>Complications</h3>
     <p>As already discussed, although <b>much</b> more flexible than Vertex-Elimination, Triangle-Collapse isn't without it's flaws. However, these are mostly limited to triangle vertex-ordering and necessarily introducing new vertex positions with every triangle collapse, so all-in-all it may be very much suitable for some use-cases. Triangle-Collapse can produce almost painterly features and is sometimes able to preserve sharp details much longer than other competing strategies, but unfortunately it wasn't a perfect match for ours.</p>
@@ -61,14 +91,14 @@
     <br>
     <h3>Error Calculation</h3>
     <p>In order to prioritize vertices that result in minimal change to the mesh, we need to define an error function. Fortunately, this is rather easy: The error of removing a the vertex at the tip can be formulated as the area between the re-triangulated base and the tip. As there's no singular valid triangulation of a polygon, this calculation unfortunately has to be repeated for all vertices and can't be blindly carried over to neighbors, as they may end up with a different triangulation, that would result in a different error value. To demonstrate, that not only <b>one</b> valid triangulation exists, let's consider the case of the following opening and its <b>two different</b> triangulations:</p>
-    <img class="small" src="assets/img/decim5.png">
+    <img src="assets/img/decim5.png">
     <br>
     <h3>Performance</h3>
-    <p>This approach is actually blazingly fast, even when forced to re-triangulate the resulting areas from the perspective of each vertex. To decimate the Statue pictured at the top of this entry to the point where all vertex eliminations would result in horrific polygons, this is what we end up with:</p>
+    <p>This approach is actually blazingly fast, even when forced to re-triangulate the resulting areas from the perspective of each vertex. To decimate the Statue pictured at the top of this entry (left) to the point where all vertex eliminations would result in horrific polygons (right), this is what we end up with:</p>
     <code>
       Error Calculation (incl. triangulation of base): 632,974 tris in 0.06161 s (3,449,320 non-skipped /s).<br>
       Error Sorting: 0.02669 s (11,859,484 /s).<br>
-      Elimination & Re-Triangulation for 150,081 verts: 0.60876 s (246,536.4 /s).<br><br>
+      Elimination & Re-Triangulation for 150,081 verts: 0.60876 s (246,536 /s).<br><br>
       Decimated 316,481 verts, 632,974 tris to 166,400 verts, 332,812 tris. (removed 15,0081 verts, 300,162 tris)
     </code>
     <p>This required an incredibly fast chunked list data-structure to be written, which allows for blazingly fast random removals & inserts (removing old error values in a sorted list, inserting new error values at the correct position) and a bunch of other little tricks.</p>

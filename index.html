@@ -14,7 +14,39 @@
   <entry class="blue">
     <img class="header" src="assets/img/decim11.jpg" />
     <h2>Comparing Triangle-Collapse and Edge-Collapse</h2>
-    <p>Triangle-Collapse may be a terrific Mesh Decimation methedology for some scenarios, but for our specific requirements (Terrain LODs with certain immutable vertices at the edge) it isn't optimal as its caveats lie exactly in the areas that hurt the most here.</p>
+    <p>As Vertex-Elimination is too limited to really produce any interesting results with complex meshes, as it's decimation floor is relatively high for any given mesh, let's only have a look at how Edge-Collapse & Triangle-Collapse fair on some more complex models and what their characteristics are when pushed to their limits.</p>
+    
+    <script>
+      addEventListener("load", () => {
+        let elements = document.getElementsByClassName('cmp');
+
+        addEventListener("mousemove", (evt) => {
+          for (e of elements) {
+            let parent_rect = e.parentElement.getBoundingClientRect();
+            let rect = e.getBoundingClientRect();
+            e.parent
+            if (evt.clientY >= rect.top && evt.clientY < rect.bottom && evt.clientX >= parent_rect.left && evt.clientX < parent_rect.right) {
+              let w = (evt.clientX - rect.x);
+              e.style.width = w + 'px';
+              e.nextElementSibling.style.left = w + "px";
+            } else {
+              e.style.width = '50%';
+              e.nextElementSibling.style.left = (parent_rect.width / 2) + "px"; 
+            }
+          }
+        })
+      });
+    </script>
+
+    <h3 class="left">Triangle-Collapse</h3>
+    <h3 class="right">Edge-Collapse</h3>
+    <div class="img-cmp">
+      <img src="assets/img/decim_edge_eber.jpg" draggable="false">
+      <div class="cmp">
+        <img src="assets/img/decim_tri_eber.jpg" draggable="false">
+      </div>
+      <div class="after-cmp"></div>
+    </div>
     <p><gray>[Model of the Cover Image: Eber by noe-3d.at is licensed under Creative Commons Attribution-NonCommercial]</gray></p>
   </entry>
 

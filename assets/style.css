@@ -181,6 +181,68 @@ video.table {
   width: 100%;
 }
 
+div.img-cmp {
+  width: auto;
+  height: auto;
+  position: relative;
+  user-select: none;
+}
+
+div.img-cmp div.cmp {
+  position: absolute;
+  top: 0;
+  overflow: hidden;
+  width: 45%;
+  height: 100%;
+  display: inline-block;
+}
+
+div.img-cmp div.cmp img {
+  height: 100%;
+  max-width: inherit;
+  margin: 0;
+  top: 0;
+  left: 0;
+  position: absolute;
+}
+
+div.img-cmp div.cmp::after {
+  content: '';
+  position: relative;
+  width: 1pt;
+  height: 100%;
+  background: #fff0;
+  float: right;
+  box-shadow: #fff 0pt 0pt 5pt 1pt;
+}
+
+div.img-cmp div.after-cmp {
+  display: inline-block;
+  width: 50pt;
+  height: 50pt;
+  background: linear-gradient(45deg, #fff 20%, transparent 21%, transparent 79%, #fff 80%);
+  position: absolute;
+  top: calc(50% - 25pt);
+  transform: translate(-25pt) rotate(45deg);
+  opacity: 50%;
+  transition-duration: 1s;
+  transition-property: opacity;
+}
+
+div.img-cmp:hover div.after-cmp {
+  opacity: 0%;
+}
+
+h3.left, h3.right {
+  display: inline-block;
+  margin-top: 20pt;
+  margin-bottom: -10pt;
+}
+
+h3.right {
+  float: right;
+}
+
 /* iphone X , XS, 11 Pro */
 @media only screen and (min-device-width: 350px) and (max-device-height: 950px) and ((-webkit-min-device-pixel-ratio: 2)) {
   body {

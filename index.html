@@ -41,13 +41,37 @@
     <h3 class="left">Triangle-Collapse</h3>
     <h3 class="right">Edge-Collapse</h3>
     <div class="img-cmp">
+      <img src="assets/img/decim_edge_poly.jpg" draggable="false">
+      <div class="cmp">
+        <img src="assets/img/decim_tri_poly.jpg" draggable="false">
+      </div>
+      <div class="after-cmp"></div>
+    </div>
+    <p>With the bottom plate we can clearly see how Triangle-Collapse quickly starts eating away even at large overall shapes. In order to get this under control, more &quot;globalist&quot; error metrics would need to be employed - but Edge-Collapse would most certainly similarly benefit from this. On the other hand, this is actually the only case where Edge-Collapse also ends up damaging normals (by flipping the triangle vertex-order). Still, it's far less pronounced as Triangle-Collapse. Ignoring all the issues, I think I prefer Edge-Collapse here over Triangle-Collapse, as it resulted in much smoother looking decimation. I expected the thin paper geometry to cause issues, but this Fortunately didn't occur.</p>
+
+    <h3 class="left">Triangle-Collapse</h3>
+    <h3 class="right">Edge-Collapse</h3>
+    <div class="img-cmp">
       <img src="assets/img/decim_edge_eber.jpg" draggable="false">
       <div class="cmp">
         <img src="assets/img/decim_tri_eber.jpg" draggable="false">
       </div>
       <div class="after-cmp"></div>
     </div>
-    <p><gray>[Model of the Cover Image: Eber by noe-3d.at is licensed under Creative Commons Attribution-NonCommercial]</gray></p>
+    <p>Here we can observe how Triangle-Collapse slowly arrives at an increasing number of problematic cases, where normals are accidentally flipped, whilst Edge-Collapse remains <b>much</b> more stable. I generally prefer the look of Triangle-Collapse here though - that is until it starts cutting of relevant areas entirely due to the more rapid increase of introduced error with every decimation step.</p>
+
+    <h3 class="left">Triangle-Collapse</h3>
+    <h3 class="right">Edge-Collapse</h3>
+    <div class="img-cmp">
+      <img src="assets/img/decim_edge_lucy.jpg" draggable="false">
+      <div class="cmp">
+        <img src="assets/img/decim_tri_lucy.jpg" draggable="false">
+      </div>
+      <div class="after-cmp"></div>
+    </div>
+    <p>Lastly, this is one of the cases where Triangle-Collapse (apart from the cut-off podium) produces a <b>much</b> nicer looking output - especially when focusing on the wings and hair of the statue. It somehow is able to achieve a somewhat painterly look on a lot of models.</p>
+
+    <p><gray>[Model of the Cover & first Image: Eber by noe-3d.at is licensed under Creative Commons Attribution-NonCommercial]</gray></p>
   </entry>
 
   <entry class="blue">

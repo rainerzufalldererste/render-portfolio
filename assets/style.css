@@ -243,6 +243,32 @@ h3.right {
   float: right;
 }
 
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 20pt auto 10pt;
+}
+
+td {
+  text-align: right;
+  font-family: 'Consolas', monospace;
+}
+
+tr:nth-child(2n) {
+  background-color: #fff1;
+}
+
+th.sub {
+  text-align: left;
+  font-weight: bold;
+  font-family: 'Consolas', monospace;
+  padding-left: 20pt;
+}
+
+th {
+  background-color: #0002;
+}
+
 /* iphone X , XS, 11 Pro */
 @media only screen and (min-device-width: 350px) and (max-device-height: 950px) and ((-webkit-min-device-pixel-ratio: 2)) {
   body {

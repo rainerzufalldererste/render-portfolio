@@ -71,6 +71,96 @@
     </div>
     <p>Lastly, this is one of the cases where Triangle-Collapse (apart from the cut-off podium) produces a <b>much</b> nicer looking output - especially when focusing on the wings and hair of the statue. It somehow is able to achieve a somewhat painterly look on a lot of models.</p>
 
+    <br>
+    <h3>Performance</h3>
+    <p>As already discussed in the Edge-Collapse entry, Triangle-Collapse is quite a lot faster in its current implementatino than Edge-Collapse. For a more direct head-to-head comparison, let's take a look at performance metrics from the bird model shown in the Vertex-Elimination post. Please note, that Vertex-Elimination isn't even reaching anything close to 1/8 the triangle count, as it pollutes its own geometry with too many unfavourable polygons during the decimation process.</p>
+    <table>
+      <tr>
+        <th>Target Tris</th>
+        <th>Step</th>
+        <th>Edge-Collapse</th>
+        <th>Triangle-Collapse</th>
+        <th>Vertex-Elimination</th>
+      </tr>
+      <tr>
+        <td></td>
+        <th class="sub">Initial Error Calc</th>
+        <td>0.08962 s</td>
+        <td>0.09059 s</td>
+        <td>0.09093 s</td>
+      </tr>
+      <tr>
+        <td></td>
+        <th class="sub">Error Sorting</th>
+        <td>0.09088 s</td>
+        <td>0.05267 s</td>
+        <td>0.02669 s</td>
+      </tr>
+      <tr>
+        <td class="fac">1/8</td>
+        <th class="sub">Decimation</th>
+        <td>4.75858 s</td>
+        <td>2.21628 s</td>
+        <td>0.60876 s</td>
+      </tr>
+      <tr>
+        <td class="fac">1/8</td>
+        <th class="sub">Out Verts</th>
+        <td>39555</td>
+        <td>39651</td>
+        <td>166400</td>
+      </tr>
+      <tr>
+        <td class="fac">1/8</td>
+        <th class="sub">Out Tris</th>
+        <td>79121</td>
+        <td>79120</td>
+        <td>332812</td>
+      </tr>
+      <tr>
+        <td class="fac">1/64</td>
+        <th class="sub">Decimation</th>
+        <td>5.24914 s</td>
+        <td>2.39596 s</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="fac">1/64</td>
+        <th class="sub">Out Verts</th>
+        <td>4942</td>
+        <td>5095</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="fac">1/64</td>
+        <th class="sub">Out Tris</th>
+        <td>9889</td>
+        <td>9887</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="fac">1/256</td>
+        <th class="sub">Decimation</th>
+        <td>5.24396 s</td>
+        <td>2.43889 s</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="fac">1/256</td>
+        <th class="sub">Out Verts</th>
+        <td>1234</td>
+        <td>1409</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="fac">1/256</td>
+        <th class="sub">Out Tris</th>
+        <td>2471</td>
+        <td>2472</td>
+        <td></td>
+      </tr>
+    </table>
+
     <p><gray>[Model of the Cover & first Image: Eber by noe-3d.at is licensed under Creative Commons Attribution-NonCommercial]</gray></p>
   </entry>
 

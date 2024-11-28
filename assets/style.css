@@ -223,7 +223,7 @@ div.img-cmp div.after-cmp {
   background: linear-gradient(45deg, #fff 20%, transparent 21%, transparent 79%, #fff 80%);
   position: absolute;
   top: calc(50% - 25pt);
-  transform: translate(-25pt) rotate(45deg);
+  transform: translate(-27pt) rotate(45deg);
   opacity: 50%;
   transition-duration: 1s;
   transition-property: opacity;
@@ -252,6 +252,10 @@ table {
 td {
   text-align: right;
   font-family: 'Consolas', monospace;
+}
+
+td.fac {
+  text-align: center;
 }
 
 tr:nth-child(2n) {

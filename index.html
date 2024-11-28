@@ -14,7 +14,7 @@
   <entry class="blue">
     <img class="header" src="assets/img/decim11.jpg" />
     <h2>Comparing Triangle-Collapse and Edge-Collapse</h2>
-    <p>As Vertex-Elimination is too limited to really produce any interesting results with complex meshes, as it's decimation floor is relatively high for any given mesh, let's only have a look at how Edge-Collapse & Triangle-Collapse fair on some more complex models and what their characteristics are when pushed to their limits.</p>
+    <p>Sadly, Vertex-Elimination is too limited to really produce any interesting results with reasonably high-poly meshes, as it's decimation floor is relatively high for any given mesh. So, let's only have a look at how Edge-Collapse & Triangle-Collapse fare on some more complex models and what their characteristics are when pushed to their limits.</p>
     
     <script>
       addEventListener("load", () => {
@@ -73,7 +73,7 @@
 
     <br>
     <h3>Performance</h3>
-    <p>As already discussed in the Edge-Collapse entry, Triangle-Collapse is quite a lot faster in its current implementatino than Edge-Collapse. For a more direct head-to-head comparison, let's take a look at performance metrics from the bird model shown in the Vertex-Elimination post. Please note, that Vertex-Elimination isn't even reaching anything close to 1/8 the triangle count, as it pollutes its own geometry with too many unfavourable polygons during the decimation process.</p>
+    <p>As already discussed in the Edge-Collapse entry, Triangle-Collapse is quite a lot faster in its current implementation than Edge-Collapse. For a more direct head-to-head comparison, let's take a look at performance metrics from the bird model shown in the Vertex-Elimination post. Please note, that Vertex-Elimination isn't even reaching anything close to 1/8 the triangle count, as it pollutes its own geometry with too many unfavourable polygons during the decimation process.</p>
     <table>
       <tr>
         <th>Target Tris</th>
@@ -167,8 +167,8 @@
   <entry class="blue">
     <img class="header" src="assets/img/decim10.jpg" />
     <h2>Mesh Decimation by Edge Collapse</h2>
-    <p>Triangle-Collapse may be a terrific Mesh Decimation methedology for some scenarios, but for our specific requirements (Terrain LODs with certain immutable vertices at the edge) it isn't optimal as its caveats lie exactly in the areas that hurt the most. So, let's take our &quot;Collapse&quot;-Strategy one step back and - rather than collapsing entire triangles into a single vertex, merely collapse a single edge at a time.</p>
-    <p>Given the similarity to Triangle-Collapse, the implementation follows along the same lines: Pick an edge, update all triangles that touched the removed vertex to point to the remaining vertex instead and optionally update the remaining vertex position to a new position. We can choose to either collapse onto the center position of the edge, or choose the more relevant vertex (in our case usually the immutable one) of the two positions. If a triangle contains both of the vertices, it can be removed entirely.</p>
+    <p>Triangle-Collapse may be a terrific Mesh Decimation methodology for some scenarios, but for our specific requirements (Terrain LODs with certain immutable vertices at the edge) it isn't optimal as its caveats lie exactly in the areas that hurt the most. So, let's take our &quot;Collapse&quot;-Strategy one step back and - rather than collapsing entire triangles into a single vertex, merely collapse a single edge at a time.</p>
+    <p>Given the similarity to Triangle-Collapse, the implementation follows along the same lines: Pick an edge, update all triangles that touched the removed vertex to point to the remaining vertex instead and optionally update the remaining vertex position to a new position. We can choose to either collapse onto the center position of the edge, or pick the position of the vertex we consider to be more <i>relevant</i> (in our case the latter strategy is only used if one of the vertices is immutable). If a triangle contains both of the vertices, it can be removed entirely.</p>
     <img src="assets/img/decim12.png">
     <br>
     <h3>Performance</h3>
@@ -180,10 +180,10 @@
       Triangle Collapse: Removed 787,729 verts / 1573,439 tris in 18.53234 s (42,505 verts /s).<br><br>
       Decimated: 790,872 verts, 1,579,609 tris to 3,143 verts, 6,170 tris.
     </code>
-    <p>This is unfortunately quite a lot slower for large models, but for our use case of decimating a relatively small and low-complexity terrain geometry-fragments, this should suffice.</p>
+    <p>This is unfortunately quite a lot slower for large models, but for our use case of decimating relatively small and low-complexity terrain geometry-fragments, this should still be acceptable.</p>
     <br>
     <h3>Complications</h3>
-    <p>Edge-Collapse isn't really more flexible, but more robust than Triangle-Collapse. Sure, like Triangle-Collapse is necessarily introduces averaged vertex positions into the mesh, but this didn't really cause any trouble with vertex-order or massive differences in our scenarios yet. Sure, it's much slower - especially than the blazingly fast Vertex-Elimination, but it's robust and doesn't catch on fire if the source geometry isn't exactly to the specific tastes of the algorithm.</p>
+    <p>Edge-Collapse isn't really more flexible, but more robust than Triangle-Collapse. Like Triangle-Collapse the strategy necessarily introduces averaged vertex positions into the mesh, but this didn't really cause any trouble with vertex-order or massive differences in any relevant scenarios yet. Sure, it's much slower - especially than the blazingly fast Vertex-Elimination, but it's robust and doesn't catch on fire if the source geometry isn't exactly to the specific tastes of the algorithm.</p>
     <p><gray>[Model of the Cover Image: Relief Depiction of Ma'at by IPCH Digitization Lab is licensed under Creative Commons Attribution]</gray></p>
   </entry>
 
@@ -194,11 +194,11 @@
     <p>So how about if we don't start with vertices or lines - which may be part of complex polygons, but rather with triangles: Simply picking a triangle and collapsing it onto its barycenter should allow us to decimate even the most complex of meshes - with the downside, that with every collapse operation, we necessarily introduce a certain amount of inaccuracy, which may carry over into future collapses.</p>
     <img src="assets/img/decim8.png">
     <br>
-    <p>We can simply treat all of a triangle's vertices as references to the same remaining now position adjusted result-vertex and ensure that all of their distinct neighbors reference this replacement vertex instead. If a neighbor triangle shares more than one vertex with our current triangle it can also be removed. We would assume triangle vertex order to stay consistent, as we're simply collapsing three vertices into one and don't really create any new vertices, but as no vertex position is "safe" from our decimation, it may occur, that triangles just happen to be collapsed into new positions that result in a flip of a triangle's vertex-order direction.</p>
-    <p>Our goal of restricting which vertices remain in place is slightly more difficult here, as we need to either not collapse any triangles that feature vertices that may not be moved or - if only one vertex may not be moved - collapse onto that vertex. In practice both of those strategies aren't flawless, especially since our mesh-generation scenario has to deal with <b>a ton</b> of open edges that may not be moved and need to line up exactly with another meshes vertices - and the better of the two strategies happens to be the "not touching triangles with immutable vertices" one, which ends up severely limiting the level of decimation possible from a given input set of partially locked vertices.</p>
+    <p>We can simply treat all of a triangle's vertices as references to the same remaining (now position-adjusted) result-vertex and ensure that all of their distinct neighbors reference this replacement vertex instead. If a neighbor triangle shares more than one vertex with our current triangle it can also be removed. We would assume triangle vertex order to stay consistent, as we're simply collapsing three vertices into one and don't really create any new vertices, but as no vertex position is "safe" from our decimation, it may occur, that triangles just happen to be collapsed into new positions that result in a flip of a triangle's vertex-order direction.</p>
+    <p>Our goal of restricting which vertices remain in place is slightly more difficult here, as we need to either not collapse any triangles that feature vertices that may not be moved or - if only one vertex may not be moved - collapse onto that vertex. In practice both of those strategies aren't flawless, especially since our mesh-generation scenario has to deal with <b>a ton</b> of open edges that may not be moved and need to line up exactly with another mesh's vertices - and the better of the two strategies happens to be the "not touching triangles with immutable vertices" one, which ends up severely limiting the level of decimation possible from a given input set of partially locked vertices.</p>
     <br>
     <h3>Error Calculation</h3>
-    <p>Again, we'll need an error metric to prioritize triangles that collapse with the least amount of visual difference, but yet again this is fairly simple: Simply summing up the area of the 3d pyramid between the collapsed and non-collapsed triangle for each of the affected triangles (except the collapsed one) suffices.</p>
+    <p>The error metric to prioritize triangles that collapse with the least amount of assumed visual difference can be fairly straightforward: Simply summing up the area of the 3d pyramid between the collapsed and non-collapsed vertex positions for each of the affected triangles (except the collapsed one) suffices.</p>
     <br>
     <h3>Performance</h3>
     <p>Triangle-Collapse is unfortunately quite a lot slower than Vertex-Elimination, but still pretty fast. To collapse the upper body of a high-resolution antique statue scan to 1/256 the vertex count we get the following metrics:</p>
@@ -229,7 +229,7 @@
     <p>So decimating a mesh by eliminating the least-relevant vertices seemed like a novel & fast solution to the problem. But first, how do we want to eliminate those least-relevant vertices?</p>
     <img class="small" src="assets/img/decim3.png">
     <br>
-    <p>Let's assume, we have this geometry-fragment, and we've determined, that the tip of this shape is the vertex we'd like to eliminate. In order to remove said vertex from our object, we have to ensure, that all neighboring vertices that previously connected to the tip do now connect to one another. So, by observing the vertices in the triangles that touch our chosen vertex, we can construct the polygon(s) of resulting area. This polygon can now simply be triangulated and our vertex can be removed entirely.</p>
+    <p>Let's assume, we have this geometry-fragment, and we've determined, that the tip of this shape is the vertex we'd like to eliminate. In order to remove said vertex from our object, we have to ensure, that all neighboring vertices that previously connected to the tip do now connect to one another. So, by observing the <i>other</i> vertices in all triangles connected with our chosen vertex, we can construct the polygon(s) of the resulting area. After sorting indices into coherent polygons by comparing overlapping indices (which can be a bit tricky at the edges of meshes), the polygon(s) can simply be triangulated and the chosen vertex has been eliminated.</p>
     <img class="small" src="assets/img/decim4.png">
     <br>
     <p>As simple as that may seem, this is much harder to implement in practice, that it may seem. Polygon triangulation in 3D isn't really a thing if the vertices don't all lie on a flat plane and even 2D polygon triangulation isn't trivial at all. As we're merely evaulating the suitability of this approach, we'll simply ignore those cases for now, and disallow any vertices from being eliminated if this would result in such a horrible case.</p>
@@ -250,7 +250,7 @@
     <p>This required an incredibly fast chunked list data-structure to be written, which allows for blazingly fast random removals & inserts (removing old error values in a sorted list, inserting new error values at the correct position) and a bunch of other little tricks.</p>
     <br>
     <h3>Complications</h3>
-    <p>What should now be somewhat apparent from the Performance Output above is, that many of the vertices needed to be skipped, as it would've been too complex to triangulate the resulting geometry. This usually isn't as terrible with smaller models, but heavily impacts the flexibility of this algorithm. What can be somewhat worked around, but isn't particularly pleasing about this approach is, that triangle vertex-ordering (which is sometimes used to determine normal directions and allows for front- or backface culling) isn't automatically preserved and needs to be <i>fixed</i> during the decimation process, if this behaviour is relevant.</p>
+    <p>What should now be somewhat apparent from the Performance Output above is, that many of the vertices needed to be skipped, as it would've been too complex to triangulate the resulting geometry. This usually isn't as terrible with smaller models, but heavily impacts the flexibility of this algorithm. What can be somewhat worked around, but isn't particularly pleasing about this approach is, that triangle vertex-ordering (which is sometimes used to determine normal directions and allows for front- or backface culling) isn't automatically preserved and needs to be <i>fixed</i> during the decimation process, if this behavior is relevant.</p>
     <p><gray>[Model of the Cover Image: Grabfigur by noe-3d.at is licensed under Creative Commons Attribution-NonCommercial]</gray><br><gray>[Model in the Image below: Abecedary tablet by IPCH Digitization Lab is licensed under Creative Commons Attribution-NonCommercial]</gray></p>
     <img src="assets/img/decim6.jpg">
   </entry>
@@ -258,7 +258,7 @@
   <entry class="blue">
     <img class="header" src="assets/img/decim0.png" />
     <h2>Border-Alternating Terrain LODs</h2>
-    <p>With connected geometry - like terrain geometry - simply disecting the model into tiles and providing various LODs for each tile (with larger tile sizes for lower quality LODs) unfortunately leads to problems whenever different LOD layers meet, as with a naive approach LOD levels would disagree at their borders about the level of fidelity. Forcing higher quality rims onto lower quality levels leads to an escalation, where even the lowest quality LODs would need to provide the highest quality borders, even though they would never actually border any of the highest quality levels, but as every lower level needs to be able to connect to a higher and lower quality level seamlessly, this forces highest quality borders onto <b>all</b> layers, which will increase the geometric detail of the lowest-quality LODs so much, that it entirely defeats the purpose of having LOD levels in the first place, as all of the detail is spent on irrelevant high-fidelity borders.</p>
+    <p>With connected geometry - like terrain geometry - simply dissecting the model into tiles and providing various LODs for each tile (with larger tile sizes for lower quality LODs) unfortunately leads to problems whenever different LOD layers meet, as with a naive approach LOD levels would disagree at their borders about the level of fidelity. Forcing higher quality rims onto lower quality levels leads to an escalation, where even the lowest quality LODs would need to provide the highest quality borders, even though they would never actually border any of the highest quality levels, but as every lower level needs to be able to connect to a higher and lower quality level seamlessly, this forces highest quality borders onto <b>all</b> layers, which will increase the geometric detail of the lowest-quality LODs so much, that it entirely defeats the purpose of having LOD levels in the first place, as all of the detail is spent on irrelevant high-fidelity borders.</p>
     <img class="small" src="assets/img/decim1.png">
     <br>
     <p>In order to resolve this, LOD levels can't share borders across <b>all</b> layers. This makes streaming LODs and generating LODs a lot more complex, but completely eliminates the issue at hand: Let's assume we have this lowest-quality <mono>LOD0</mono> of our terrain.</p>
@@ -288,7 +288,7 @@
     <p>As two of the parent nodes of those nodes haven't been loaded in already, this also forces <b>those parent nodes</b> to be loaded in at a higher LOD as well, namely <mono>LOD2</mono>.</p>
     <img class="small" src="assets/img/lod8.png">
     <br>
-    <p>Implementing this intra-tile dependency isn't actually as tricky as it may seem, as it's always very straightforward to determine, which of the neighboring tiles need to be loaded in as well. A simple look-up-table suffices to store the vectors to the requires neighboring tiles being a certain child-index of a parent tile:</p>
+    <p>Implementing this intra-tile dependency isn't actually as tricky as it may seem, as it's always very straightforward to determine, which of the neighboring tiles need to be loaded in as well. A simple look-up-table suffices to store the vectors to the required neighboring (&quot;sibling&quot;) tiles from the perspective of each child-index of a parent tile:</p>
     <code>
       static const vec2i8 siblings_from_child_idx[4][3]{<br>
       &emsp;&emsp;{{-1, -1}, {0, -1}, {-1, 0}}, // top left<br>

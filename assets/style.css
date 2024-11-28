@@ -229,6 +229,16 @@ div.img-cmp div.after-cmp {
   transition-property: opacity;
 }
 
+div.img-cmp div.cmp img {
+  filter: blur(5px) brightness(90%) saturate(80%);
+  transition-duration: 1s;
+  transition-property: filter;
+}
+
+div.img-cmp:hover div.cmp img {
+  filter: none;
+}
+
 div.img-cmp:hover div.after-cmp {
   opacity: 0%;
 }

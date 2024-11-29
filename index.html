@@ -298,6 +298,9 @@
       };
     </code>
     <p>Now one can simply recursively iterate over tiles by starting at the root, splitting every tile that is sufficiently close and loading in all sibling tiles that need to be loaded alongside a given child.</p>
+    <br>
+    <h3>Handling Procedural Geometry & Mesh Fragments</h3>
+    <p>As we always need to know the vertices higher-resolution LOD layers in advance, it's highly recommended to generate such LODs with a bottom-up approach, as otherwise it's much more cumbersome to force our current LOD's vertices to match up with higher-resolution ones haven't even seen yet. When doing so for partially loaded Meshes (especially common when procedurally generating or manipulating the underlying geometry), generating higher LOD layers with matching <b>outer</b> vertices (yes, not the <i>inner</i> vertices, that match up with higher LODs, but ones that need to match up with <b>neighboring</b> tiles of the <b>same</b> LOD level) can be tricky to handle. This is because neighboring LODs will be decimated <b>separately</b>, but we need to ensure that both we and them pick the <b>same</b> vertex positions on the rims of our tiles, as we'd end up with gaps between triangles otherwise. An easy strategy to handle this, is to <b>manually</b> Edge-Collapse every second vertex on the rim onto its neighbor, then mark the the remaining rim vertices as immutable, <b>before</b> the entire tile is decimated to the desired level. This doesn't necessarily result in the most <i>pleasing</i> geometry, but it ensures <i>consistency</i> between the tiles and prevents any gaps from forming.</p>
   </entry>
 
   <entry class="green">

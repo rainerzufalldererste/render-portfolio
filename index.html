@@ -11,15 +11,307 @@
 <body>
   <div class="title"></div>
 
+  <entry class="blue">
+    <img class="header" src="assets/img/decim11.jpg" />
+    <h2>Comparing Triangle-Collapse and Edge-Collapse</h2>
+    <p>Sadly, Vertex-Elimination is too limited to really produce any interesting results with reasonably high-poly meshes, as it's decimation floor is relatively high for any given mesh. So, let's only have a look at how Edge-Collapse & Triangle-Collapse fare on some more complex models and what their characteristics are when pushed to their limits.</p>
+    
+    <script>
+      addEventListener("load", () => {
+        let elements = document.getElementsByClassName('cmp');
+
+        addEventListener("mousemove", (evt) => {
+          for (e of elements) {
+            let parent_rect = e.parentElement.getBoundingClientRect();
+            let rect = e.getBoundingClientRect();
+            e.parent
+            if (evt.clientY >= rect.top && evt.clientY < rect.bottom && evt.clientX >= parent_rect.left && evt.clientX < parent_rect.right) {
+              let w = (evt.clientX - rect.x);
+              e.style.width = w + 'px';
+              e.nextElementSibling.style.left = w + "px";
+            } else {
+              e.style.width = '50%';
+              e.nextElementSibling.style.left = (parent_rect.width / 2) + "px"; 
+            }
+          }
+        })
+      });
+    </script>
+
+    <h3 class="left">Triangle-Collapse</h3>
+    <h3 class="right">Edge-Collapse</h3>
+    <div class="img-cmp">
+      <img src="assets/img/decim_edge_poly.jpg" draggable="false">
+      <div class="cmp">
+        <img src="assets/img/decim_tri_poly.jpg" draggable="false">
+      </div>
+      <div class="after-cmp"></div>
+    </div>
+    <p>With the bottom plate we can clearly see how Triangle-Collapse quickly starts eating away even at large overall shapes. In order to get this under control, more &quot;globalist&quot; error metrics would need to be employed - but Edge-Collapse would most certainly similarly benefit from this. On the other hand, this is actually the only case where Edge-Collapse also ends up damaging normals (by flipping the triangle vertex-order). Still, it's far less pronounced as Triangle-Collapse. Ignoring all the issues, I think I prefer Edge-Collapse here over Triangle-Collapse, as it resulted in much smoother looking decimation. I expected the thin paper geometry to cause issues, but this fortunately didn't occur.</p>
+
+    <h3 class="left">Triangle-Collapse</h3>
+    <h3 class="right">Edge-Collapse</h3>
+    <div class="img-cmp">
+      <img src="assets/img/decim_edge_eber.jpg" draggable="false">
+      <div class="cmp">
+        <img src="assets/img/decim_tri_eber.jpg" draggable="false">
+      </div>
+      <div class="after-cmp"></div>
+    </div>
+    <p>Here we can observe how Triangle-Collapse slowly arrives at an increasing number of problematic cases, where normals are accidentally flipped, whilst Edge-Collapse remains <b>much</b> more stable. I generally prefer the look of Triangle-Collapse here though - that is until it starts cutting of relevant areas entirely due to the more rapid increase of introduced error with every decimation step.</p>
+
+    <h3 class="left">Triangle-Collapse</h3>
+    <h3 class="right">Edge-Collapse</h3>
+    <div class="img-cmp">
+      <img src="assets/img/decim_edge_lucy.jpg" draggable="false">
+      <div class="cmp">
+        <img src="assets/img/decim_tri_lucy.jpg" draggable="false">
+      </div>
+      <div class="after-cmp"></div>
+    </div>
+    <p>Lastly, this is one of the cases where Triangle-Collapse (apart from the cut-off podium) produces a <b>much</b> nicer looking output - especially when focusing on the wings and hair of the statue. It somehow is able to achieve a somewhat painterly look on a lot of models.</p>
+
+    <br>
+    <h3>Performance</h3>
+    <p>As already discussed in the Edge-Collapse entry, Triangle-Collapse is quite a lot faster in its current implementation than Edge-Collapse. For a more direct head-to-head comparison, let's take a look at performance metrics from the bird model shown in the Vertex-Elimination post. Please note, that Vertex-Elimination isn't even reaching anything close to 1/8 the triangle count, as it pollutes its own geometry with too many unfavourable polygons during the decimation process.</p>
+    <table>
+      <tr>
+        <th>Target Tris</th>
+        <th>Step</th>
+        <th>Edge-Collapse</th>
+        <th>Triangle-Collapse</th>
+        <th>Vertex-Elimination</th>
+      </tr>
+      <tr>
+        <td></td>
+        <th class="sub">Initial Error Calc</th>
+        <td>0.08962 s</td>
+        <td>0.09059 s</td>
+        <td>0.09093 s</td>
+      </tr>
+      <tr>
+        <td></td>
+        <th class="sub">Error Sorting</th>
+        <td>0.09088 s</td>
+        <td>0.05267 s</td>
+        <td>0.02669 s</td>
+      </tr>
+      <tr>
+        <td class="fac">1/8</td>
+        <th class="sub">Decimation</th>
+        <td>4.75858 s</td>
+        <td>2.21628 s</td>
+        <td>0.60876 s</td>
+      </tr>
+      <tr>
+        <td class="fac">1/8</td>
+        <th class="sub">Out Verts</th>
+        <td>39,555</td>
+        <td>39,651</td>
+        <td>166,400</td>
+      </tr>
+      <tr>
+        <td class="fac">1/8</td>
+        <th class="sub">Out Tris</th>
+        <td>79,121</td>
+        <td>79,120</td>
+        <td>332,812</td>
+      </tr>
+      <tr>
+        <td class="fac">1/64</td>
+        <th class="sub">Decimation</th>
+        <td>5.24914 s</td>
+        <td>2.39596 s</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="fac">1/64</td>
+        <th class="sub">Out Verts</th>
+        <td>4,942</td>
+        <td>5,095</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="fac">1/64</td>
+        <th class="sub">Out Tris</th>
+        <td>9,889</td>
+        <td>9,887</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="fac">1/256</td>
+        <th class="sub">Decimation</th>
+        <td>5.24396 s</td>
+        <td>2.43889 s</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="fac">1/256</td>
+        <th class="sub">Out Verts</th>
+        <td>1,234</td>
+        <td>1,409</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="fac">1/256</td>
+        <th class="sub">Out Tris</th>
+        <td>2,471</td>
+        <td>2,472</td>
+        <td></td>
+      </tr>
+    </table>
+
+    <p><gray>[Model of the Cover & second Image: Eber by noe-3d.at is licensed under Creative Commons Attribution-NonCommercial]</gray></p>
+  </entry>
+
+  <entry class="blue">
+    <img class="header" src="assets/img/decim10.jpg" />
+    <h2>Mesh Decimation by Edge Collapse</h2>
+    <p>Triangle-Collapse may be a terrific Mesh Decimation methodology for some scenarios, but for our specific requirements (Terrain LODs with certain immutable vertices at the edge) it isn't optimal as its caveats lie exactly in the areas that hurt the most. So, let's take our &quot;Collapse&quot;-Strategy one step back and - rather than collapsing entire triangles into a single vertex, merely collapse a single edge at a time.</p>
+    <p>Given the similarity to Triangle-Collapse, the implementation follows along the same lines: Pick an edge, update all triangles that touched the removed vertex to point to the remaining vertex instead and optionally update the remaining vertex position to a new position. We can choose to either collapse onto the center position of the edge, or pick the position of the vertex we consider to be more <i>relevant</i> (in our case the latter strategy is only used if one of the vertices is immutable). If a triangle contains both of the vertices, it can be removed entirely.</p>
+    <img src="assets/img/decim12.png">
+    <br>
+    <h3>Performance</h3>
+    <p>Edge-Collapse is unfortunately yet again a bit slower than Triangle-Collapse and Vertex-Elimination. To collapse the upper body of a high-resolution antique statue scan to 1/256 the vertex count we get the following metrics:</p>
+    <code>
+      Error Calculation: 2,370,474 edges / 790,872 verts in 9.19001 s (257,940 edges /s).<br>
+      Edge Reference Sorting: 0.02447 s (32,316,578 /s).<br>
+      Error Sorting:  0.21137 s (11,214,596 /s).<br>
+      Triangle Collapse: Removed 787,729 verts / 1573,439 tris in 18.53234 s (42,505 verts /s).<br><br>
+      Decimated: 790,872 verts, 1,579,609 tris to 3,143 verts, 6,170 tris.
+    </code>
+    <p>This is unfortunately quite a lot slower for large models, but for our use case of decimating relatively small and low-complexity terrain geometry-fragments, this should still be acceptable.</p>
+    <br>
+    <h3>Complications</h3>
+    <p>Edge-Collapse isn't really more flexible, but more robust than Triangle-Collapse. Like Triangle-Collapse the strategy necessarily introduces averaged vertex positions into the mesh, but this didn't really cause any trouble with vertex-order or massive differences in any relevant scenarios yet. Sure, it's much slower - especially than the blazingly fast Vertex-Elimination, but it's robust and doesn't catch on fire if the source geometry isn't exactly to the specific tastes of the algorithm.</p>
+    <p><gray>[Model of the Cover Image: Relief Depiction of Ma'at by IPCH Digitization Lab is licensed under Creative Commons Attribution]</gray></p>
+  </entry>
+
+  <entry class="blue">
+    <img class="header" src="assets/img/decim7.jpg" />
+    <h2>Mesh Decimation by Triangle Collapse</h2>
+    <p>As our Vertex-Elimination Decimation had too many caveats to be used as a general purpose decimation algorithm - and even ran into problems with our target of terrain decimation - we'll have to come up with a different solution. So, let's try to address the largest problems we ran into: Dependency on &quot;nice&quot; geometry, that we'd end up ruining eventually anyways & needing to do extra steps to fix vertex-ordering in triangles, if requested.</p>
+    <p>So how about if we don't start with vertices or lines - which may be part of complex polygons, but rather with triangles: Simply picking a triangle and collapsing it onto its barycenter should allow us to decimate even the most complex of meshes - with the downside, that with every collapse operation, we necessarily introduce a certain amount of inaccuracy, which may carry over into future collapses.</p>
+    <img src="assets/img/decim8.png">
+    <br>
+    <p>We can simply treat all of a triangle's vertices as references to the same remaining (now position-adjusted) result-vertex and ensure that all of their distinct neighbors reference this replacement vertex instead. If a neighbor triangle shares more than one vertex with our current triangle it can also be removed. We would assume triangle vertex order to stay consistent, as we're simply collapsing three vertices into one and don't really create any new vertices, but as no vertex position is "safe" from our decimation, it may occur, that triangles just happen to be collapsed into new positions that result in a flip of a triangle's vertex-order direction.</p>
+    <p>Our goal of restricting which vertices remain in place is slightly more difficult here, as we need to either not collapse any triangles that feature vertices that may not be moved or - if only one vertex may not be moved - collapse onto that vertex. In practice both of those strategies aren't flawless, especially since our mesh-generation scenario has to deal with <b>a ton</b> of open edges that may not be moved and need to line up exactly with another mesh's vertices - and the better of the two strategies happens to be the "not touching triangles with immutable vertices" one, which ends up severely limiting the level of decimation possible from a given input set of partially locked vertices.</p>
+    <br>
+    <h3>Error Calculation</h3>
+    <p>The error metric to prioritize triangles that collapse with the least amount of assumed visual difference can be fairly straightforward: Simply summing up the area of the 3d pyramid between the collapsed and non-collapsed vertex positions for each of the affected triangles (except the collapsed one) suffices.</p>
+    <br>
+    <h3>Performance</h3>
+    <p>Triangle-Collapse is unfortunately quite a lot slower than Vertex-Elimination, but still pretty fast. To collapse the upper body of a high-resolution antique statue scan to 1/256 the vertex count we get the following metrics:</p>
+    <code>
+      Error Calculation: 1,579,609 tris / 790,872 verts in 0.58253 s (2,711,622 tris /s).<br>
+      Error Sorting: 0.13659 s (11,564,442 /s).<br>
+      Triangle Collapse: Removed 787,256 verts / 1,573,441 tris in 7.59792 s (103,614 verts /s).<br><br>
+      Decimated: 790,872 verts, 1,579,609 tris to 3,616 verts, 6,168 tris.
+    </code>
+    <p>The performance of Triangle-Collapse also benefits from the same chunked list data-structure, as implemented for Vertex-Elimination. For a more direct comparison, here's the metrics from running a light 1/8 decimation on the same model as in the Vertex-Elimination entry.</p>
+    <code>
+      Error Calculation: 632,974 tris / 316,481 verts in 0.23238 s (2,723,874.8 tris /s).<br>
+      Error Sorting: 0.05267 s (12,018,053 /s).<br>
+      Triangle Collapse: Removed 276,830 verts / 553,854 tris in 2.21628 s (124,907.4 verts /s).<br><br>
+      Decimated: 316,481 verts, 632,974 tris tris to 39,651 verts, 79,120 tris.
+    </code>
+    <br>
+    <h3>Complications</h3>
+    <p>As already discussed, although <b>much</b> more flexible than Vertex-Elimination, Triangle-Collapse isn't without it's flaws. However, these are mostly limited to triangle vertex-ordering and necessarily introducing new vertex positions with every triangle collapse, so all-in-all it may be very much suitable for some use-cases. Triangle-Collapse can produce almost painterly features and is sometimes able to preserve sharp details much longer than other competing strategies, but unfortunately it wasn't a perfect match for ours.</p>
+    <p><gray>[Model in the Image below: Abecedary tablet by IPCH Digitization Lab is licensed under Creative Commons Attribution-NonCommercial]</gray></p>
+    <img src="assets/img/decim9.jpg">
+  </entry>
+
+  <entry class="blue">
+    <img class="header" src="assets/img/decim2.jpg" />
+    <h2>Mesh Decimation by Vertex Elimination</h2>
+    <p>Since Border-Alternating Terrain LODs require full control over <b>which</b> triangles are decimated, a custom mesh decimation algorithm is needed - and even if not, it'd be very convenient to have a fast, reliable &amp; flexible way of decimation at our finger tips.</p>
+    <p>So decimating a mesh by eliminating the least-relevant vertices seemed like a novel & fast solution to the problem. But first, how do we want to eliminate those least-relevant vertices?</p>
+    <img class="small" src="assets/img/decim3.png">
+    <br>
+    <p>Let's assume, we have this geometry-fragment, and we've determined, that the tip of this shape is the vertex we'd like to eliminate. In order to remove said vertex from our object, we have to ensure, that all neighboring vertices that previously connected to the tip do now connect to one another. So, by observing the <i>other</i> vertices in all triangles connected with our chosen vertex, we can construct the polygon(s) of the resulting area. After sorting neighboring triangles into coherent polygons by finding common (= overlapping) vertices (which can be a bit tricky with &quot;open&quot; meshes or at the rims of mesh fragments, as there may not be any further overlapping vertices after a certain point, but still some triangles left to process), the polygon(s) can simply be triangulated and the chosen vertex has been eliminated.</p>
+    <img class="small" src="assets/img/decim4.png">
+    <br>
+    <p>As simple as this may seem, it sadly isn't that easy to implement in practice: Polygon triangulation in 3D isn't really a thing if the vertices don't all lie on a flat plane and even 2D polygon triangulation isn't trivial at all. As we're merely evaluating the suitability of this approach, we'll simply ignore those cases for now, and disallow any vertices from being eliminated if this would result in such a horrible case.</p>
+    <p>Regarding our goal of being able to leave singular vertices untouched, to line up with higher-fidelity LODs, this can be achieved very easily here, as the decimation procedure happens <b>per-vertex</b> anyways.</p>
+    <br>
+    <h3>Error Calculation</h3>
+    <p>In order to prioritize vertices that result in minimal change to the mesh, we need to define an error function. Fortunately, this is rather easy: The error of removing the vertex at the tip can be formulated as the area between the re-triangulated base and the tip (= sum of the areas of the tetrahedron between the generated triangle and tip). As there's no singular valid triangulation of a polygon, this calculation unfortunately has to be repeated for all vertices and can't be blindly carried over to neighbors, as they may end up with a different triangulation, that would result in a different error value. To demonstrate, that not only <b>one</b> valid triangulation exists, let's consider the case of the following opening and its <b>two different</b> triangulations:</p>
+    <img src="assets/img/decim5.png">
+    <br>
+    <h3>Performance</h3>
+    <p>This approach is actually blazingly fast, even when forced to re-triangulate the resulting areas from the perspective of each vertex. To decimate the Statue pictured at the top of this entry (left) to the point where all vertex eliminations would result in horrific polygons (right), this is what we end up with:</p>
+    <code>
+      Error Calculation (incl. triangulation of base): 632,974 tris in 0.06161 s (3,449,320 non-skipped /s).<br>
+      Error Sorting: 0.02669 s (11,859,484 /s).<br>
+      Elimination & Re-Triangulation for 150,081 verts: 0.60876 s (246,536 /s).<br><br>
+      Decimated 316,481 verts, 632,974 tris to 166,400 verts, 332,812 tris. (removed 15,0081 verts, 300,162 tris)
+    </code>
+    <p>This required an incredibly fast chunked list data-structure to be written, which allows for blazingly fast random removals & inserts (removing old error values in a sorted list, inserting new error values at the correct position) and a bunch of other little tricks.</p>
+    <br>
+    <h3>Complications</h3>
+    <p>What should now be somewhat apparent from the Performance Output above is, that many of the vertices needed to be skipped, as it would've been too complex to triangulate the resulting geometry. This usually isn't as terrible with smaller models, but heavily impacts the flexibility of this algorithm. What can be somewhat worked around, but isn't particularly pleasing about this approach is, that triangle vertex-ordering (which is sometimes used to determine normal directions and allows for front- or backface culling) isn't automatically preserved and needs to be <i>fixed</i> during the decimation process, if this behavior is relevant.</p>
+    <p><gray>[Model of the Cover Image: Grabfigur by noe-3d.at is licensed under Creative Commons Attribution-NonCommercial]</gray><br><gray>[Model in the Image below: Abecedary tablet by IPCH Digitization Lab is licensed under Creative Commons Attribution-NonCommercial]</gray></p>
+    <img src="assets/img/decim6.jpg">
+  </entry>
+
+  <entry class="blue">
+    <img class="header" src="assets/img/decim0.png" />
+    <h2>Border-Alternating Terrain LODs</h2>
+    <p>With connected geometry - like terrain geometry - simply dissecting the model into tiles and providing various LODs for each tile (with larger tile sizes for lower quality LODs) unfortunately leads to problems whenever different LOD layers meet, as with a naive approach LOD levels would disagree at their borders about the level of fidelity. Forcing higher quality rims onto lower quality levels leads to an escalation, where even the lowest quality LODs would need to provide the highest quality borders, even though they would never actually border any of the highest quality levels, but as every lower level needs to be able to connect to a higher and lower quality level seamlessly, this forces highest quality borders onto <b>all</b> layers, which will increase the geometric detail of the lowest-quality LODs so much, that it entirely defeats the purpose of having LOD levels in the first place, as all of the detail is spent on irrelevant high-fidelity borders.</p>
+    <img class="small" src="assets/img/decim1.png">
+    <br>
+    <p>In order to resolve this, LOD levels can't share borders across <b>all</b> layers. This makes streaming LODs and generating LODs a lot more complex, but completely eliminates the issue at hand: Let's assume we have this lowest-quality <mono>LOD0</mono> of our terrain.</p>
+    <img class="small" src="assets/img/lod0.png">
+    <br>
+    <p>If we want to load a segment of <mono>LOD0</mono>, we need to split it into its four children, as otherwise we'd end up rendering some segments twice: Once with <mono>LOD0</mono> and more with <mono>LOD1</mono>.</p>
+    <img class="small" src="assets/img/lod1.png">
+    <br>
+    <p>Now, to address the issue discussed above: We need to choose a different boundary, at which higher-resolution LODs line up with <mono>LOD1</mono>. So, let's lock the vertices on the dark-turquoise lines to match the fidelity of <mono>LOD2</mono>.</p>
+    <img class="small" src="assets/img/lod2.png">
+    <br>
+    <p>Let's assume the worst case: We're interested in more detail in the selected tile of <mono>LOD2</mono>. Simply loading in this tile, we would disagree with the neighboring tiles of <mono>LOD1</mono> on the level-of-fidelity at the two borders highlighted in white.</p>
+    <img class="small" src="assets/img/lod3.png">
+    <br>
+    <p>To address this, loading the tile highlighted in white <b>forces</b> the turquoise tiles to be loaded at the same LOD, as they share the same dark-turquoise square.</p>
+    <img class="small" src="assets/img/lod4.png">
+    <br>
+    <p>In order to again address the issue of sharing boundaries between LOD levels, we force the vertices on the dark-green lines to match the vertices at <mono>LOD3</mono>.</p>
+    <img class="small" src="assets/img/lod5.png">
+    <br>
+    <p>Let's again assume one of the more interesting cases, and let's say we want to load a higher quality LOD at the tile highlighted in green. Similar as before, this leads to a disagreement on the level of fidelity on the borders highlighed in white.</p>
+    <img class="small" src="assets/img/lod6.png">
+    <br>
+    <p>As discussed before, loading in the tile highlighted in white <b>forces</b> the tiles in green to be loaded as well. Actually <b>any</b> of these 4 tiles being loaded would <b>force</b> the remaining 3 tiles to be loaded in as well.</p>
+    <img class="small" src="assets/img/lod7.png">
+    <br>
+    <p>As two of the parent nodes of those nodes haven't been loaded in already, this also forces <b>those parent nodes</b> to be loaded in at a higher LOD as well, namely <mono>LOD2</mono>.</p>
+    <img class="small" src="assets/img/lod8.png">
+    <br>
+    <p>Implementing this intra-tile dependency isn't actually as tricky as it may seem, as it's always very straightforward to determine, which of the neighboring tiles need to be loaded in as well. A simple look-up-table suffices to store the vectors to the required neighboring (&quot;sibling&quot;) tiles from the perspective of each child-index of a parent tile:</p>
+    <code>
+      static const vec2i8 siblings_from_child_idx[4][3]{<br>
+      &emsp;&emsp;{{-1, -1}, {0, -1}, {-1, 0}}, // top left<br>
+      &emsp;&emsp;{{0, -1}, {1, -1}, {1, 0}}, // top right<br>
+      &emsp;&emsp;{{-1, 0}, {-1, 1}, {0, 1}}, // bottom left<br>
+      &emsp;&emsp;{{1, 0}, {0, 1}, {1, 1}} // bottom right<br>
+      };
+    </code>
+    <p>Now one can simply recursively iterate over tiles by starting at the root, splitting every tile that is sufficiently close and loading in all sibling tiles that need to be loaded alongside a given child.</p>
+    <br>
+    <h3>Handling Procedural Geometry & Mesh Fragments</h3>
+    <p>As we always need to know the vertices higher-resolution LOD layers in advance, it's highly recommended to generate such LODs with a bottom-up approach, as otherwise it's much more cumbersome to force our current LOD's vertices to match up with higher-resolution ones we haven't even seen yet. When doing so for partially loaded Meshes (especially common when procedurally generating or manipulating the underlying geometry), generating higher LOD layers with matching <b>outer</b> vertices (yes, not the <i>inner</i> vertices, that match up with higher LODs, but ones that need to match up with <b>neighboring</b> tiles of the <b>same</b> LOD level) can be tricky to handle. This is because neighboring LODs will be decimated <b>separately</b>, but we need to ensure that both we and them pick the <b>same</b> vertex positions on the rims of our tiles, as we'd end up with gaps between triangles otherwise. An easy strategy to handle this, is to <b>manually</b> Edge-Collapse every second vertex on the rim onto its neighbor, then mark the remaining rim vertices as immutable, <b>before</b> the entire tile is decimated to the desired level. This doesn't necessarily result in the most <i>pleasing</i> geometry, but it ensures <i>consistency</i> between the tiles and prevents any gaps from forming.</p>
+  </entry>
+
   <entry class="green">
     <img class="header" src="assets/img/gi0.jpg" />
-    <h2>Single Bounce Voxel Traced Global Ilumination</h2>
-    <p>Now, that we've voxelized our shaded scene, the main deferred pass can be followed up by an additively blended global ilumination pass. In this pass we use the same g-buffers as inputs as in the regular deferred shading pass, but instead of looking up lights and shading based on surface color and normal, we take the world-position as a starting point, reflect the camera-to-world-space-vector at the surface normal, move slightly (with a small random offset) into the derived direction (until we're no longer in the vicinity of neighboring voxels), add some random rotation to the direction vector (based on material roughness) and trace through the voxelized geometry until we either run out of steps (in this case, we assume, that we've hit the skybox and sample from it), or we've hit a shaded or unshaded populated voxel, in which case we derive the color from said voxel.</p>
+    <h2>Single Bounce Voxel Traced Global Illumination</h2>
+    <p>Now, that we've voxelized our shaded scene, the main deferred pass can be followed up by an additively blended global illumination pass. In this pass we use the same g-buffers as inputs as in the regular deferred shading pass, but instead of looking up lights and shading based on surface color and normal, we take the world-position as a starting point, reflect the camera-to-world-space-vector at the surface normal, move slightly (with a small random offset) into the derived direction (until we're no longer in the vicinity of neighboring voxels), add some random rotation to the direction vector (based on material roughness) and trace through the voxelized geometry until we either run out of steps (in this case, we assume, that we've hit the skybox and sample from it), or we've hit a shaded or unshaded populated voxel, in which case we derive the color from said voxel.</p>
     <p>Even just sampling with one ray per pixel results in reasonably smooth results when viewed at sufficiently high framerates. This will eventually be smoothed out by TAA, so screenshots won't end up looking horribly noisy in the final version.</p>
     <img src="assets/img/gi1.jpg">
     <br>
     <h2>Effective Voxel Tracing</h2>
-    <p>Given a voxel position <b>pos</b> (i.e. <i>[1, 4, 7]</i> in the voxel field <i>[0, 0, 0] ~ [10, 10, 10]</i>) and direction <b>dir</b>, with the sampled voxel being <b>cpos = pos + t * dir</b>, we can immediately transition to the next voxel by using the following basic formula:</p>
+    <p>Given a voxel position <mono>pos</mono> (i.e. <mono>[1, 4, 7]</mono> in the voxel field <mono>[0, 0, 0] ~ [10, 10, 10]</mono>) and direction <b>dir</b>, with the sampled voxel being <mono>cpos = pos + t * dir</mono>, we can immediately transition to the next voxel by using the following basic formula:</p>
     <code>
       vec3 delta = vec3(1) - fract(cpos);<br>
       vec3 delta_scaled = delta / dir;<br>
@@ -29,7 +321,7 @@
     <h2>Generating Randomly Rotated Vectors For Rough Surfaces</h2>
     <p>Randomly rotating arbitrary vectors can be somewhat cumbersome, we use the following approach:</p>
     <ol>
-      <li>Take the unit up-vector (<i>[0, 0, -1]</i> in our case)</li>
+      <li>Take the unit up-vector (<mono>[0, 0, -1]</mono> in our case)</li>
       <li>Randomly rotate it in x and y direction (or whatever two directions aren't up in your preferred coordinate system)</li>
       <li>Generate a mapping matrix, that rotates the unit up-vector onto our original vector using the previously discussed <b>RotateAlignVectors</b> function.</li>
       <li>Transform the rotated up-vector with the mapping matrix</li>
@@ -86,13 +378,13 @@
   </entry>
 
   <entry class="blue">
-    <img class="header" src="assets/img/atlas2.png" />
+    <img class="header" src="assets/img/atlas2.jpg" />
     <h2>Improving and Optimizing the Texture Atlas</h2>
     <p>The original implementation was already capable of processing hundreds of thousands of triangles per second, but the utilization of the texture area wasn't particularly good, as the coverage quadtree initially preferred placing triangle clusters at high-layer node positions. This left arbitrarily sized holes in the quadtree that are neither particularly easy to find, when looking for available space for future clusters nor necessarily good spots to place clusters into, as the total available area is quickly fragmented by the first couple of clusters.</p>
     <p>We'd much prefer clusters to be placed closer to existing clusters, so we'll modify the atlas slightly: After the final dimensions have been found, we allow the quadtree to attempt to move the current bounds to the top left by one node per layer if possible. This achieves much better atlas coverage - still not optimal, but improved to the point that models with double the unit-size can consistently fit into the atlas now. Apart from the coverage benefits, for some models this ends up positively impacting the runtime performance as well, as it's much faster to find empty spots with the improved coverage.</p>
     <p>After a bunch of smaller optimization (mostly bloom-filters to avoid costlier randomish-memory-access-dependent-conditionals) we're somewhere between handling <b>500k - 1M Triangles per Second</b> on a single thread.</p>
     <h3>Stanford Dragon Texture Coordinates & Model Render</h3>
-    <img src="assets/img/atlas3.png">
+    <img src="assets/img/atlas3.jpg">
     <p>To actually get a decent performance benchmark of the texture atlas, I fed it the entire stanford dragon model (<b>871k Triangles</b>), as well as a bunch of other large standard models (like a simplified version of Stanford Lucy).</p>
     <code>
       2.01443 s (432,422 triangles per second) without moving cluster bounds to the top-left<br>

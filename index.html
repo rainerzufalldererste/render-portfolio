@@ -12,6 +12,21 @@
   <div class="title"></div>
 
   <entry class="blue">
+    <h2>Binary Serialization via Type-Seggregated Array Vari-RLE</h2>
+    <p>In order to serialize generated assets into a custom model format, we need a minimal, fast & adaptable (de-)serialization API.</p>
+    <p>As discussed <a href="https://gafferongames.com/post/serialization_strategies/">here</a>, in order to achieve single-function de-/serialization per object, we introduce a similar API with a custom serialization-<mono>context</mono> input parameter.</p>
+    <code>
+      ERROR_CHECK(io_value(context, self.verts)); // list of vec3f<br/>
+      ERROR_CHECK(io_value(context, self.triVertIndices)); // list of uint16_t<br/>
+      ERROR_CHECK(io_enum_as_int(context, self.mirrorAxis)); // enum
+    </code>
+    <p>Our serialization context now collects values of different types into separate arrays and when reaching the end of the stream, we can simply RLE-compress, Reference & Integer-Encode (where applicable) all the collected values per type to get a significantly reduced output size. By collecting symbols on-the-fly into a recent, approximate common and most-frequent buffer (upgrading values inside those buffers as we collect them), we can further improve our ease of referencing common values (although, this process is fairly costly upon decompression as well). Rather than just immediately encoding the symbols in a bitstream (which isn't even possible with rANS), we can gather symbol-frequency statistics over the generated symbols into histograms & use those to entropy-encode the symbol stream.</p>
+    <p>Afterwards, the collected symbols can be written to a file-/memory-/network-bytestream of our choosing.</p>
+    <p>Further improvements may be achieved, by meta-compressing the type specific symbol streams, in order to possibly combine commonly succeeding symbols into a separate meta-symbol, etc.</p>
+    <p>One of the limitations of this approach, is that all values need to be collected first (need to reside in RAM at once, rather than being able to be streamed in & out concurrently), and can only be compressed afterwards. However, following a data-oriented approach, this is usually a faster way to do this (compared to the constant context switching of compression & structure descent) and presumably results in a much simpler implementation.</p>
+  </entry>
+
+  <entry class="blue">
     <img class="header" src="assets/img/decim11.jpg" />
     <h2>Comparing Triangle-Collapse and Edge-Collapse</h2>
     <p>Sadly, Vertex-Elimination is too limited to really produce any interesting results with reasonably high-poly meshes, as it's decimation floor is relatively high for any given mesh. So, let's only have a look at how Edge-Collapse & Triangle-Collapse fare on some more complex models and what their characteristics are when pushed to their limits.</p>

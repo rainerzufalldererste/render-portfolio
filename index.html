@@ -27,6 +27,14 @@
   </entry>
 
   <entry class="blue">
+    <img class="header" src="assets/img/voxel_trace_noise1.jpg" />
+    <h2>On Noise Patterns</h2>
+    <p>When having a look at my original global-illumination implementation, there was a large amount of sporadic noise, that didn't result in visually pleasing "smooth" seeming lighting. The noise source for this implementation had been a white-noise texture, that was being read at locations tied to the screen and world position & was being offset by a random factor for each frame.</p>
+    <img src="assets/img/voxel_trace_noise0.jpg">
+    <img src="assets/img/voxel_reflect0.jpg">
+  </entry>
+
+  <entry class="blue">
     <img class="header" src="assets/img/decim11.jpg" />
     <h2>Comparing Triangle-Collapse and Edge-Collapse</h2>
     <p>Sadly, Vertex-Elimination is too limited to really produce any interesting results with reasonably high-poly meshes, as it's decimation floor is relatively high for any given mesh. So, let's only have a look at how Edge-Collapse & Triangle-Collapse fare on some more complex models and what their characteristics are when pushed to their limits.</p>

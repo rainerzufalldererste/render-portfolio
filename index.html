@@ -29,11 +29,13 @@
   <entry class="blue">
     <img class="header" src="assets/img/voxel_trace_noise1.jpg" />
     <h2>On Noise Patterns</h2>
-    <p>When having a look at my original global-illumination implementation, there was a large amount of sporadic noise, that didn't result in visually pleasing "smooth" seeming lighting. The noise source for this implementation had been a white-noise texture, that was being read at locations tied to the screen and world position & was being offset by a random factor for each frame.</p>
-    <p>However, fully random noise (white noise) may lead to long-term convergence to the average, but not necessarily to a stable look over the short term, which is why usually blue (or even custom spacio-temporal) noise is used for such purposes.</p>
+    <p>When having a look at our original global-illumination implementation, there was a large amount of sporadic noise, that didn't result in visually consistent and seemingly smooth lighting. The noise source for this implementation had been a white-noise texture, that was being read at locations tied to the screen and world position & was being offset by a random vector for each frame.</p>
+    <p>Fully random noise (white noise) may lead to long-term convergence to the average, but not necessarily to a stable look over the short term, which is why usually blue (or even custom spacio-temporal) noise is used for such purposes.</p>
+    <p>Replacing this way of applying noise with ...</p>
+    <p>This may lead to a more "patterned" looking noise texture, but also to a much higher rate of convergence to a visually consistent state.</p>
     <img src="assets/img/voxel_trace_noise0.jpg">
     <h3>Voxel Traced Reflections</h3>
-    <p>As global-illumination rays are cast in the deferred section of the render loop, we have roughness information associated with the surface of the first bounce. When encountering shiny surfaces - if we're fully respecting and considering surface properties - this can lead to nice voxel traced reflections. On a per-frame basis, these reflections clearly display the resolution limitations of the voxel grid, although by jiggeling the voxel grid offset slightly over time, one could achieve a much smoother look.</p>
+    <p>As global-illumination rays are cast in the deferred section of the render loop, we have roughness information associated with the surface of the first bounce. When encountering shiny surfaces - if we're fully respecting and considering surface properties - this can lead to nice voxel traced reflections. On a per-frame basis, these reflections clearly display the resolution limitations of the voxel grid, although by jiggeling the voxel grid offset slightly over time, one could achieve a much smoother look. Unfortunately the limited (but also time-dithered) color accuracy limitations are quite obvious here, as we haven't overhauled the noise pipeline on that end yet.</p>
     <img src="assets/img/voxel_reflect0.jpg">
   </entry>
 

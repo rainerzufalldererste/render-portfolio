@@ -12,9 +12,63 @@
   <div class="title"></div>
 
   <entry class="blue">
-    <h2>Binary Serialization via Type-Seggregated Array Vari-RLE</h2>
+    <h2>Rendering Soft Shadows</h2>
+  </entry>
+  
+  <entry class="blue">
+    <h2>Temporal Global-Illumination Accumulation via Reprojection</h2>
+  </entry>
+  
+  <entry class="blue">
+    <h2>Complications with Voxel Tracing</h2>
+  </entry>
+
+  <entry class="blue">
+    <img class="header" src="assets/img/cascade0.jpg" />
+    <h2>Cascaded Shadow Map Blending</h2>
+    <img src="assets/img/cascade1.jpg" />
+  </entry>
+
+  <entry class="blue">
+    <img class="header" src="assets/img/occc_abstract.png" />
+    <h2>Renderer Architecture: Occlusion Culling</h2>
+    <img src="assets/img/occc0.png" style="image-rendering: pixelated;" />
+  </entry>
+
+  <entry class="blue">
+    <h2>Renderer Architecture: Objects & LODs</h2>
+    <code>
+struct gpu_lod_info
+<br/>{
+<br/>&ensp;&ensp;uint32_t vertexOffset; // offset into vertex mega-buffer
+<br/>&ensp;&ensp;uint32_t indexOffset; // offset into index mega-buffer
+<br/>&ensp;&ensp;uint32_t indexCount; // number of indices. 0: not loaded
+<br/>&ensp;&ensp;uint32_t requestedCount; // render requests per frame (= load priority)
+<br/>};
+<br/>
+<br/>struct gpu_lod_obj_info
+<br/>{
+<br/>&ensp;&ensp;gpu_lod_info lods[MaxLodCount];
+<br/>&ensp;&ensp;vec3f maxBoundingVolume; // maximum dimensions of all LODs
+<br/>&ensp;&ensp;uint32_t validLodMask; // bitmask of lods available to be loaded
+<br/>&ensp;&ensp;vec3f centerOffset; // combines with `maxBoundingVolume` to a bounding box of all LODs
+<br/>};
+    </code>
+  </entry>
+
+  <entry class="green">
+    <img class="header" src="assets/img/plant0.jpg" />
+    <h2>Vegetation Rendering</h2>
+    <img src="assets/img/plant1.jpg" />
+    <img class="small" src="assets/img/plant2.jpg" />
+    <br/>
+    <h3>Geometry Shader (Bi-)Tangent Generation</h3>
+  </entry>
+
+  <entry class="blue">
+    <h2>Binary Serialization via Type-Seggregated Buffer Compression</h2>
     <p>In order to serialize generated assets into a custom model format, we need a minimal, fast & adaptable (de-)serialization API.</p>
-    <p>As discussed <a href="https://gafferongames.com/post/serialization_strategies/">here</a>, in order to achieve single-function de-/serialization per object, we introduce a similar API with a custom serialization-<mono>context</mono> input parameter.</p>
+    <p>As discussed <a href="https://gafferongames.com/post/serialization_strategies/">by gaffer on games</a>, in order to achieve single-function de-/serialization per object, we introduce a similar API with a custom serialization-<mono>context</mono> input parameter.</p>
     <code>
       ERROR_CHECK(io_value(context, self.verts)); // list of vec3f<br/>
       ERROR_CHECK(io_value(context, self.triVertIndices)); // list of uint16_t<br/>

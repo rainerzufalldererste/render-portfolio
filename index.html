@@ -12,6 +12,7 @@
   <div class="title"></div>
 
   <entry class="blue">
+    <img class="header" src="assets/img/sshad0.jpg" />
     <h2>Rendering Soft Shadows</h2>
   </entry>
   
@@ -61,10 +62,50 @@ struct gpu_lod_info
   <entry class="green">
     <img class="header" src="assets/img/plant0.jpg" />
     <h2>Vegetation Rendering</h2>
+    <p>Although vegetation may be very complex to portray accurately in a real-time rendering engine, there are a couple of different factors, that combine to give a relatively cheap, but still somewhat realistic impression of actual plant behavior. Tree trunks might be able to get away with relying on good rendering fundamentals, branches might be happy with the first two components, but especially large leaves require a whole set of tricks to achieve a convincing look. So, let's go step-by-step, from basic to specialized.</p>
+    <h4>Good Fundamentals</h4>
+    <p>As already mentioned, good fundamental rendering techniques can already carry some of the weight when dealing with large pieces of vegetation: So, normal-mapping, shadows and physically based rendering from other parts of the rendering pipeline are also very useful here. Normal-Mapping specifically is crucial here to mimick complex geometry on leaves and bark of trees.</p>
+    <p>For this demo, we've merely applied normal maps and simulated a linear block of shadow, as this wasn't too distracting from the overall picture when trying to experiment with the more specialized components.</p>
+    <h4>Wind</h4>
+    <p>Now, a property that's crucial for all but some of the thickest trunks - from leaves to twigs to branches, is swaying in the wind. To achieve somewhat realistic swaying behavior, every vertex is stored alongside a weight, representing how impacted the vertex should be by the local wind vector (global wind vectors will look too uniform over a large scene and break the illusion fairly quickly). If an area touches - or is very close to - the ground, the vertex weight is zero (we don't want vegetation to be floating around, whilst penetrating the ground!), and for the thinnest tips of leaves the weight is one.</p>
+    <p>For branches it may be sufficient to simply apply the wind vector directly, whereas for larger leaves it would be ideal to take the overall &quot;springyness&quot; of the leaf and the leaf-internal forces into account. This will (hopefully) be explored further in the future.</p>
     <img src="assets/img/plant1.jpg" />
+    <h4>Backside Shadowing</h4>
+    <p>As leaves are usually very thin, so, when viewing the unlit backside, we'd expect to see the light & shadows pass through the leaf structure to the other side. Thankfully <mono>gl_FrontFacing</mono> makes quick work of distinguishing between the front & backside, so we can simply flip the surface normal on the backside.</p>
+    <h4>Subsurface Density</h4>
+    <p>Lastly, leaves obviously have varying depth & density from the various veins passing through the leaf - even though we're simply representing the leaf with a bunch of flat planes. When viewing the leaf from the backside, we can derive our coloring based on this subsurface density and if the backside is being lit, alter the color of the light passing through the leaf to be darkened by the subsurface map.</p>
     <img class="small" src="assets/img/plant2.jpg" />
     <br/>
-    <h3>Geometry Shader (Bi-)Tangent Generation</h3>
+    <h3>(Bi-)Tangent Generation</h3>
+    <p>Going on a slight tangent (😉), in order to apply normal maps to our vertex normals, we need tangent and bitangent vectors for our normal. These are commonly precalculated and stored alongside the other vertex data, but - as they can simply be calculated from the texture coordinate & world position of a mesh - they can also be calculated in a shader.</p>
+    <h4>Geometry Shader (Bi-)Tangent Generation</h4>
+    <p>As the tangent & bitangent vectors are identical within each triangle, they can simply be generated in a geometry shader from the world position and texture coordinates as follows.</p>
+    <code>
+vec3 edge0 = gPosition[1] - gPosition[0];
+<br/>vec3 edge1 = gPosition[2] - gPosition[0];
+<br/>vec2 deltaUV0 = gTexCoord[1] - gTexCoord[0];
+<br/>vec2 deltaUV1 = gTexCoord[2] - gTexCoord[0];
+<br/>
+<br/>vec3 tangent;
+<br/>tangent.x = normalize(deltaUV1.y * edge0.x - deltaUV0.y * edge1.x);
+<br/>tangent.y = normalize(deltaUV1.y * edge0.y - deltaUV0.y * edge1.y);
+<br/>tangent.z = normalize(deltaUV1.y * edge0.z - deltaUV0.y * edge1.z);
+<br/>
+<br/>vec3 bitangent;
+<br/>bitangent.x = normalize(-deltaUV1.x * edge0.x + deltaUV0.x * edge1.x);
+<br/>bitangent.y = normalize(-deltaUV1.x * edge0.y + deltaUV0.x * edge1.y);
+<br/>bitangent.z = normalize(-deltaUV1.x * edge0.z + deltaUV0.x * edge1.z);
+    </code>
+    <h4>Fragment Shader (Bi-)Tangent Generation</h4>
+    <p>For the sake of completeness and to validate, that our results are correct, we may also calculate tangent & bitangent vectors per fragment. Assuming decent occlusion culling, this is gonna result in a lot more work, as the same values will be generated for each fragment within a triangle.</p>
+    <code>
+vec3 pos_diff_x = dFdx(fWorldPos);
+<br/>vec3 pos_diff_y = dFdy(fWorldPos);
+<br/>vec2 tex_coord_diff_x = dFdx(fTexCoord);
+<br/>vec2 tex_coord_diff_y = dFdy(fTexCoord);
+<br/>vec3 tangent = normalize(pos_diff_x * tex_coord_diff_y.y - pos_diff_y * tex_coord_diff_x.y);
+<br/>vec3 bitangent = normalize(-pos_diff_x * tex_coord_diff_y.x + pos_diff_y * tex_coord_diff_x.x);
+    </code>
   </entry>
 
   <entry class="blue">

@@ -28,33 +28,76 @@
 
   <entry class="blue">
     <img class="header" src="assets/img/cascade0.jpg" />
-    <h2>Cascaded Shadow Map Blending</h2>
-    <img src="assets/img/cascade1.jpg" />
+    <h2>Cascaded Shadow Maps</h2>
+    <p>Rendering sun shadows usually compes with a bit of a trade-off: As texture-resolution is limited, shadows may either be high quality, but fade out very quickly, or they fade our much futher away, but are much less detailed.</p>
+    <p>As a solution to this conundrum, which stays within the traditional rendering pipeline, we can simply render the world from multiple increasingly large orthographic views (biased towards the look direction). This results in having a view with high quality shadows for close-up detail, but also far-reaching shadow map coverage (with lesser quality where it matters less).</p>
+    <img class="small" src="assets/img/cascade1.jpg" />
+    <p>When applying the shadows to our scene, we can simply iterate through the list of our so-called cascades, until we end up in-bounds of the light matrix. This is handled as usual, we simply project the world-space position of our fragment to the view-projection matrix of the corresponding shadow-map and end up with a view-space coordinate into the associated texture.</p>
+    <p>In order to obscur the transitions between the different shadow-maps, we can employ a simple edge-fade, smoothly transitioning from one cascade to another.</p>
+    <code>
+for (; layer < 4; layer++)
+<br/>{
+<br/>&ensp;&ensp;// decoupled matrices, otherwise `lightSpacePos` can be calculated from the previous one
+<br/>&ensp;&ensp;mat4x4 lightVP = lights[lightIdx + layer].vp;
+<br/>&ensp;&ensp;
+<br/>&ensp;&ensp;vec4 lightSpacePos = lightVP * vec4(worldPosition, 1); // world position in light space
+<br/>&ensp;&ensp;//lightSpacePos /= lightSpacePos.w; // not needed, orthographic!
+<br/>&ensp;&ensp;
+<br/>&ensp;&ensp;float maxPos = max(abs(lightSpacePos.x), abs(lightSpacePos.y));
+<br/>&ensp;&ensp;if (absMaxPos < 1) // if not out of bounds: stop!
+<br/>&ensp;&ensp;&ensp;&ensp;break;
+<br/>}
+</code>
   </entry>
 
   <entry class="blue">
     <img class="header" src="assets/img/occc_abstract.png" />
     <h2>Renderer Architecture: Occlusion Culling</h2>
+    <p>As we're generating multi-draw-indirect-buffer for rendered chunks from a compute shader, we'd like to reduce the number of objects being rendered to only consist of what's actually visible on screen.</p>
+    <p>One such approach is Frustum Culling - a simple technique, which attempts to reject objects behind or next to the View Frustum. It's fairly cheap and easy to implement - simply requiring a bounding box to be projected to the screen, but it's also inherently limited, as it can't combat overdraw.</p>
+    <code>
+struct gpu_lod_obj_info
+<br/>{
+<br/>&ensp;&ensp;gpu_lod_info lods[MaxLodCount]; // vertex, index buffer offsets, index count, request counts per LOD
+<br/>&ensp;&ensp;vec3f maxBoundingVolume; // maximum dimensions of all LODs
+<br/>&ensp;&ensp;uint32_t validLodMask; // bitmask of lods available to be loaded
+<br/>&ensp;&ensp;vec3f centerOffset; // combines with `maxBoundingVolume` to a bounding box of all LODs
+<br/>};
+</code>
+    <p>A more intricate and powerful technique is called Occlusion Culling. Here, we attempt to compare the depth of the projected object or bounding box against a reprojected depth buffer from the previous frame (which may additionally include some static close objects being re-rendered on top, to combat gaps in the reprojected depth buffer).</p>
+    <p>To make those lookups cheaper, we can construct a mip-chain from the depth buffer, which contains both the minimum and maximum depth value of the represented depth-buffer values (as a best- &amp; worst-case depth). To make using this mip-chain simpler, we can simply restrict it to the highest power of two in x and y below the depth buffer resolution.</p>
     <img src="assets/img/occc0.png" style="image-rendering: pixelated;" />
+    <p>Now, with the help of this depth buffer, we can simply check if the worst case depth of our object - so the closest it could possibly be, derived from its bounding box - <b>can</b> even occupy a certain area on screen (as opposed to being behind some other static object from the reprojected depth).</p>
+    <p>If our object's worst-case depth lands between the minimum and maximum depth represented by a certain mip texel <b>and</b> is at the edge of the bounding box, we can recursively check if the data stored in the underlying mip's texels makes this decision more obvious. Otherwise, we have to drwa the object on screen.</p>
+    <img src="assets/img/occc1.png">
   </entry>
 
   <entry class="blue">
     <h2>Renderer Architecture: Objects & LODs</h2>
+    <p>To achieve fully GPU driven render object streaming and for some significant throughput advancements, we'd only like to stream full chunks of static render objects to the GPU as a simple list of render object instances to generate a lodded multi-draw-indirect-buffer.</p>
+    <p>New chunks are simply supplied to the renderer as a list of such render object descriptors (position, rotation, scale). As the Render Objects needs to be able to look up information about the render objects, which is shared between multiple instances, which should be simple indices on the GPU side, we allocate space for each distinct render object into a pool of Render Object Information.</p>
+    <code>
+struct render_object_instance
+<br/>{
+<br/>&ensp;&ensp;uint32_t id; // renderer turns this into a pool idx
+<br/>&ensp;&ensp;vec3f pos, rotationAngles;
+<br/>&ensp;&ensp;float scale;
+<br/>};
+    </code>
+    <p>Now, for every chunk the compute shader which generates the multi-draw-indirect-buffer is called once, with the offset and size of the corresponding list of render objects.</p>
+    <p>Here, we can now do all sorts of culling operations and determine the correct LOD to be used for this drwa-call.</p>
+    <h3>GPU driven LOD streaming</h3>
+    <p>So far, we've simply assumed, that all LODs have been loaded and are available to the compute shader. However, we most likely don't even wanna stream in all of those LODs - at least in most cases.</p>
+    <p>By simply adding a <mono>requestCount</mono> to our Render Object Information for each object, we can simply atomically increment (can also be weighted by imporance / size) whenever an LOD is being requested or drawn.</p>
+    <p>After each frame the CPU-side iterates over the occupied slots of the pool, finds the missing LODs with the most requests and forwards it to the asset-streaming subsystem, which will asynchronously read, prepare and upload the LOD's mesh data to the GPU. Prioritization is handled via the <mono>requestCount</mono>.</p>
+    <p>As even loaded LODs are marked this way, the <b>unloading</b> of LODs can be handled in a similar fashion. Obviously, the <mono>requestCount</mono> needs to be reset after every frame.</p>
     <code>
 struct gpu_lod_info
 <br/>{
-<br/>&ensp;&ensp;uint32_t vertexOffset; // offset into vertex mega-buffer
-<br/>&ensp;&ensp;uint32_t indexOffset; // offset into index mega-buffer
-<br/>&ensp;&ensp;uint32_t indexCount; // number of indices. 0: not loaded
-<br/>&ensp;&ensp;uint32_t requestedCount; // render requests per frame (= load priority)
-<br/>};
-<br/>
-<br/>struct gpu_lod_obj_info
-<br/>{
-<br/>&ensp;&ensp;gpu_lod_info lods[MaxLodCount];
-<br/>&ensp;&ensp;vec3f maxBoundingVolume; // maximum dimensions of all LODs
-<br/>&ensp;&ensp;uint32_t validLodMask; // bitmask of lods available to be loaded
-<br/>&ensp;&ensp;vec3f centerOffset; // combines with `maxBoundingVolume` to a bounding box of all LODs
+<br/>&ensp;&ensp;uint32_t vertexOffset; // offset into the vertex mega-buffer.
+<br/>&ensp;&ensp;uint32_t indexOffset; // offset into the index mega-buffer.
+<br/>&ensp;&ensp;uint32_t indexCount; // number of indices to be drawn; 0: not loaded.
+<br/>&ensp;&ensp;uint32_t requestedCount; // number of draw requests during the last frame.
 <br/>};
     </code>
   </entry>
@@ -76,7 +119,7 @@ struct gpu_lod_info
     <p>Lastly, leaves obviously have varying depth & density from the various veins passing through the leaf - even though we're simply representing the leaf with a bunch of flat planes. When viewing the leaf from the backside, we can derive our coloring based on this subsurface density and if the backside is being lit, alter the color of the light passing through the leaf to be darkened by the subsurface map.</p>
     <img class="small" src="assets/img/plant2.jpg" />
     <br/>
-    <h3>(Bi-)Tangent Generation</h3>
+    <h3>Shader-Level (Bi-)Tangent Vector Calculation</h3>
     <p>Going on a slight tangent (😉), in order to apply normal maps to our vertex normals, we need tangent and bitangent vectors for our normal. These are commonly precalculated and stored alongside the other vertex data, but - as they can simply be calculated from the texture coordinate & world position of a mesh - they can also be calculated in a shader.</p>
     <h4>Geometry Shader (Bi-)Tangent Generation</h4>
     <p>As the tangent & bitangent vectors are identical within each triangle, they can simply be generated in a geometry shader from the world position and texture coordinates as follows.</p>

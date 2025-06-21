@@ -14,6 +14,11 @@
   <entry class="blue">
     <img class="header" src="assets/img/sshad0.jpg" />
     <h2>Rendering Soft Shadows</h2>
+    <p>Achieving Soft shadows with traditional rendering techniques is far from being an accurate depiction of such phenomena in ray-traced scenes, but still significantly improves the overall look of the final output. Whereas soft shadowing in ray-tracing is an inherent property of tracing towards the larger surface of the light fixture, with a traditional rendering pipeline, there is no direct equivalent of this.</p>
+    <p>Experimenting with sampling the light fixture area over multiple frames and accumulating the result in screen-space has proven tricky, so usually simply accumulating the shadowed-ness of neighboring shadow-map texels is being used for a smoother overall look - but it doesn't come with all of the &quot;real&quot; properties of soft shadows, such as softness increasing with distance from the shadow-casting object. These things can be mimicked though by manually increasing the sampling radius depending on the depth difference between world-space and shadow map.</p>
+    <p>In order to decrease the number of required samples per pixel, we usually cast a wide net of a few of shadow samples. If the accumulated result is partially shadowed (so neither all, nor none of the samples are fully in shadow), we collect more samples to resolve the full quality soft shadow.</p>
+    <p>For sub-pixel blending, we can simply subtract the fractional sub-pixel position from the sample offsets and throw those positions into a weighting function, then accumulate the weighted samples and divide the sum by the combined weights.</p>
+    <img src="assets/img/sshad1.jpg" />
   </entry>
   
   <entry class="blue">

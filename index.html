@@ -24,11 +24,15 @@
   <entry class="blue">
     <img class="header" src="assets/img/giaccum0.jpg" />
     <h2>Temporal Global-Illumination Accumulation via Reprojection</h2>
+    <p>The techniques used in Temporal Anti-Aliasing can be adapted to accumulate and blur GI samples over multiple frames.</p>
+    <p>Problems arise from the dependency of surface color to GI color, so textures won't stay crisp when sharing GI samples across surfaces with varied texturing</p>
+    <p>Solution: Remove <b>some</b> of the textural information from the GI data, by simply dividing by the albedo color. Then in the next frame re-apply the albedo color into the accumulated GI again.</p>
   </entry>
   
   <entry class="blue">
     <img class="header" src="assets/img/vxtrace0.jpg" />
-    <h2>Complications with Aligned Voxel-Field Tracing</h2>
+    <h2>Complications with View-Aligned Voxel-Field Tracing</h2>
+    <p></p>
   </entry>
 
   <entry class="blue">

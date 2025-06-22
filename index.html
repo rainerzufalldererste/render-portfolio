@@ -52,7 +52,7 @@ float calculate_weight(vec2 offset /* = sample_offset - subpixel_offset */, floa
     <p>In contrast to ray tracing against lower poly versions of the rendered scene, where flat surfaces can trivially be represented accurately, are there additional complications with such areas as soon as such surfaces are rasterized to a grid that doesn't exactly conform the directional preferences of the surface plane.</p>
     <p>First of all, when resolving from the world-space position in the rendered output to the voxel grid position, we may land inside or potentially even behind the voxelized equivalent.</p>
     <p>Secondly, as flat surfaces that don't align neatly with the voxel grid, will inhibit at least <i>some</i> stair-stepping, we could - especially at extremely shallow viewing angles - accidentally encounter a ray intersection with the same surface, by running into such a stair-step.</p>
-    <p>Lastly, when tracing staring from a voxelied corner position, we may accidentally run into a the voxelized remains of a close surface that lies in an irrelevant direction, which occupies our path by simply being too close to the origin surface.</p>
+    <p>Lastly, when tracing staring from a voxelized corner position, we may accidentally run into a the voxelized remains of a close surface that lies in an irrelevant direction, which occupies our path by simply being too close to the origin surface.</p>
     <p>To combat these points, we firstly offset our voxelized position in direction of the current surface normal. If we're still stuck inside a voxel at this point, we allow the voxel tracer a couple of steps <i>through</i> solid voxels, until we'd give up and assume the target voxel to be occupied.</p>
     <p>This helps to achieve <b>much</b> more pleasing results than simply doing one or the other, as those factors combine nicely to combat the issues mentioned above pretty convincingly in all but exceptional edge-cases.</p>
   </entry>
@@ -60,11 +60,11 @@ float calculate_weight(vec2 offset /* = sample_offset - subpixel_offset */, floa
   <entry class="blue">
     <img class="header" src="assets/img/cascade0.jpg" />
     <h2>Cascaded Shadow Maps</h2>
-    <p>Rendering sun shadows usually compes with a bit of a trade-off: As texture-resolution is limited, shadows may either be high quality, but fade out very quickly, or they fade our much futher away, but are much less detailed.</p>
+    <p>Rendering sun shadows usually comes with a bit of a trade-off: As texture-resolution is limited, shadows may either be high quality, but fade out very quickly, or they fade out much futher away, but are much less detailed.</p>
     <p>As a solution to this conundrum, which stays within the traditional rendering pipeline, we can simply render the world from multiple increasingly large orthographic views (biased towards the look direction). This results in having a view with high quality shadows for close-up detail, but also far-reaching shadow map coverage (with lesser quality where it matters less).</p>
     <img class="small" src="assets/img/cascade1.jpg" />
     <p>When applying the shadows to our scene, we can simply iterate through the list of our so-called cascades, until we end up in-bounds of the light matrix. This is handled as usual, we simply project the world-space position of our fragment to the view-projection matrix of the corresponding shadow-map and end up with a view-space coordinate into the associated texture.</p>
-    <p>In order to obscur the transitions between the different shadow-maps, we can employ a simple edge-fade, smoothly transitioning from one cascade to another.</p>
+    <p>In order to obscure the transitions between the different shadow-maps, we can employ a simple edge-fade, smoothly transitioning from one cascade to another.</p>
     <code>
 for (; layer < 4; layer++)
 <br/>{

@@ -12,9 +12,207 @@
   <div class="title"></div>
 
   <entry class="blue">
+    <img class="header" src="assets/img/sshad0.jpg" />
+    <h2>Rendering Soft Shadows</h2>
+    <p>Achieving Soft shadows with traditional rendering techniques is far from being an accurate depiction of such phenomena in ray-traced scenes, but still significantly improves the overall look of the final output. Whereas soft shadowing in ray-tracing is an inherent property of tracing towards the larger surface of the light fixture, with a traditional rendering pipeline, there is no direct equivalent of this.</p>
+    <p>Experimenting with sampling the light fixture area over multiple frames and accumulating the result in screen-space has proven tricky, so usually simply accumulating the shadowed-ness of neighboring shadow-map texels is being used for a smoother overall look - but it doesn't come with all of the &quot;real&quot; properties of soft shadows, such as softness increasing with distance from the shadow-casting object. These things can be mimicked though by manually increasing the sampling radius depending on the depth difference between world-space and shadow map.</p>
+    <p>For sub-texel blending, we can simply subtract the fractional sub-texel position from the sample offsets and throw those positions into a weighting function, then accumulate the weighted samples and divide the sum by the combined weights.</p>
+    <img src="assets/img/sshad1.jpg" />
+    <p>In order to decrease the number of required samples per pixel, we begin by casting a sparse but wide net of shadow samples. If the accumulated result is partially shadowed (so neither all, nor none of the samples are fully in shadow), we collect more samples to resolve the full quality soft shadow.</p>
+    <p>To determine the smoothing range to be used for distance-based shadow penumbra sizes, we gather the average depth difference from the initial net of shadow samples, use that to interpolate between the minimum and maximum smoothing radius and use the inverse of the resulting value as bounds for our weighting formula.</p>
+    <code>
+float calculate_weight(vec2 offset /* = sample_offset - subpixel_offset */, float inverse_radius)
+<br/>{
+<br/>&ensp;&ensp;float r = length(offset) * inverse_radius;
+<br/>&ensp;&ensp;r *= r;
+<br/>&ensp;&ensp;r = max(0.0, 1.0 - r * r);
+<br/>&ensp;&ensp;return r;
+<br/>}
+    </code>
+  </entry>
+  
+  <entry class="blue">
+    <img class="header" src="assets/img/giaccum0.jpg" />
+    <h2>Temporal Global-Illumination Accumulation via Reprojection</h2>
+    <p>Anti-Aliasing is commonly implemented via temporal multi-sampling and reprojecting previous frames into the current view-space in modern rendering engines. However, the same techniques can be adapted to combat the rough surface ray-tracing noise by accumulating and bluring ray-traced Global-Illumination samples over multiple frames. As we're tracing into a voxelized version of our rendered scene, we can additionally apply a morton sequence to our voxelization offset positions, to further improve the visual quality of the reflected geometry.</p>
+    <p>As there's quite a bit of overlap, it's very convenient to combine the GI accumulation with the application of Temporal Anti-Aliasing, as e.g. the color and depth differences observed in one, can aid the blending in the other. Unlike the TAA-pass, however, GI is meant to blur on a much larger range in both time and space, as the voxel-traced samples are much more unreliable.</p>
+    <p>That's why we take a blurred version (restricted by depth differences) of the previous frame as the starting point of the current one and also allow neighboring samples from the current frame to be included in the final color of the current frame's GI as well. That way, GI can slowly &quot;bleed&quot; across surfaces, merely inhibited by stark differences in depth curvature (= edges) between the surrounding samples.</p>
+    <video class="table" loop autoplay="true" muted="true">
+      <source src="assets/vid/tgi.mp4" type="video/mp4">
+    </video>
+    <p>There is, however, one complication to consider here: Global-Illumination sample color is inherently linked to the albedo surface color of which it had been reflected, so without accounting for this surface textures will get very washed out and blurry, as their final color is indirectly influenced by the neighboring texels via their contributions to the blurred GI sample colors.</p>
+    <p>To combat this, we remove <b>some</b> of the textural information from the GI data, by simply dividing the accumulated GI color by the current frame's albedo color (offset by some constant, to limit the negative impact of incorrectly attributed samples) before storing the final accumulated sample. When referencing this accumulated GI texel during the next frame, we'll obviously have to re-apply the albedo color, before combining it with the newly acquired sample.</p>
+    <p>It's important to <b>not</b> fall back to the shaded output color here, but rather use the raw albedo color, as otherwise directional differences in shading would have an enormous side-effect on the accumulated Global-Illumination samples.</p>
+    <p>Another point to consider is that GI samples inherently cannot be interpolated between texels, as otherwise surface information from one surface may bleed into an unrelated other surface through such means.</p>
+  </entry>
+  
+  <entry class="blue">
+    <img class="header" src="assets/img/vxtrace0.jpg" />
+    <h2>The Troubled Seas of Voxel-Field Tracing</h2>
+    <p>In contrast to ray tracing against lower poly versions of the rendered scene, where flat surfaces can trivially be represented accurately, there are additional complications with such areas as soon as such surfaces are rasterized to a grid that doesn't exactly conform the directional preferences of the surface plane.</p>
+    <p>First of all, when resolving from the world-space position in the rendered output to the voxel grid position, we may land inside or potentially even behind the voxelized equivalent.</p>
+    <p>Secondly, as flat surfaces that don't align neatly with the voxel grid, will inhibit at least <i>some</i> stair-stepping, we could - especially at extremely shallow viewing angles - accidentally encounter a ray intersection with the same surface, by running into such a stair-step.</p>
+    <p>Lastly, when tracing staring from a voxelized corner position, we may accidentally run into the voxelized remains of a close surface that lies in an irrelevant direction, which occupies our path by simply being too close to the origin surface.</p>
+    <p>To combat these points, we firstly offset our voxelized position in direction of the current surface normal. If we're still stuck inside a voxel at this point, we allow the voxel tracer a couple of steps <i>through</i> solid voxels, until we'd give up and assume the target voxel to be occupied.</p>
+    <p>This helps to achieve <b>much</b> more pleasing results than simply doing one or the other, as those factors combine nicely to combat the issues mentioned above pretty convincingly in all but exceptional edge-cases.</p>
+  </entry>
+
+  <entry class="blue">
+    <img class="header" src="assets/img/cascade0.jpg" />
+    <h2>Cascaded Shadow Maps</h2>
+    <p>Rendering sun shadows usually comes with a bit of a trade-off: As texture-resolution is limited, shadows may either be high quality, but fade out very quickly, or they fade out much futher away, but are much less detailed.</p>
+    <p>As a solution to this conundrum, which stays within the traditional rendering pipeline, we can simply render the world from multiple increasingly large orthographic views (biased towards the look direction). This results in having a view with high quality shadows for close-up detail, but also far-reaching shadow map coverage (with lesser quality where it matters less).</p>
+    <img class="small" src="assets/img/cascade1.jpg" />
+    <p>When applying the shadows to our scene, we can simply iterate through the list of our so-called cascades, until we end up in-bounds of the light matrix. This is handled as usual, we simply project the world-space position of our fragment to the view-projection matrix of the corresponding shadow-map and end up with a view-space coordinate into the associated texture.</p>
+    <p>In order to obscure the transitions between the different shadow-maps, we can employ a simple edge-fade, smoothly transitioning from one cascade to another.</p>
+    <code>
+for (; layer < 4; layer++)
+<br/>{
+<br/>&ensp;&ensp;// decoupled matrices, otherwise `lightSpacePos` can be calculated from the previous one
+<br/>&ensp;&ensp;mat4x4 lightVP = lights[lightIdx + layer].vp;
+<br/>&ensp;&ensp;
+<br/>&ensp;&ensp;vec4 lightSpacePos = lightVP * vec4(worldPosition, 1); // world position in light space
+<br/>&ensp;&ensp;//lightSpacePos /= lightSpacePos.w; // not needed, orthographic!
+<br/>&ensp;&ensp;
+<br/>&ensp;&ensp;float maxPos = max(abs(lightSpacePos.x), abs(lightSpacePos.y));
+<br/>&ensp;&ensp;if (absMaxPos < 1) // if not out of bounds: stop!
+<br/>&ensp;&ensp;&ensp;&ensp;break;
+<br/>}
+</code>
+  </entry>
+
+  <entry class="blue">
+    <img class="header" src="assets/img/occc_abstract.png" />
+    <h2>Renderer Architecture: Occlusion Culling</h2>
+    <p>As we're generating multi-draw-indirect-buffer for rendered chunks from a compute shader, we'd like to reduce the number of objects being rendered to only consist of what's actually visible on screen.</p>
+    <p>One such approach is Frustum Culling - a simple technique, which attempts to reject objects behind or next to the View Frustum. It's fairly cheap and easy to implement - simply requiring a bounding box to be projected to the screen, but it's also inherently limited, as it can't combat overdraw.</p>
+    <code>
+struct gpu_lod_obj_info
+<br/>{
+<br/>&ensp;&ensp;gpu_lod_info lods[MaxLodCount]; // vertex, index buffer offsets, index count, request counts per LOD
+<br/>&ensp;&ensp;vec3f maxBoundingVolume; // maximum dimensions of all LODs
+<br/>&ensp;&ensp;uint32_t validLodMask; // bitmask of lods available to be loaded
+<br/>&ensp;&ensp;vec3f centerOffset; // combines with `maxBoundingVolume` to a bounding box of all LODs
+<br/>};
+</code>
+    <p>A more intricate and powerful technique is called Occlusion Culling. Here, we attempt to compare the depth of the projected object or bounding box against a reprojected depth buffer from the previous frame (which may additionally include some static close objects being re-rendered on top, to combat gaps in the reprojected depth buffer).</p>
+    <p>To make those lookups cheaper, we can construct a mip-chain from the depth buffer, which contains both the minimum and maximum depth value of the represented depth-buffer values (as a best- &amp; worst-case depth). To make using this mip-chain much more straightforward (as we can't just assume that it's valid to split a certain texel down the middle and end up in the right place of the next mip), we can simply restrict the reprojected depth map size to the highest power of two in x and y less or equal to the depth buffer resolution.</p>
+    <img src="assets/img/occc0.png" style="image-rendering: pixelated;" />
+    <p>Now, with the help of this depth buffer mip chain, we can easily check if the worst case depth of our object - so the closest it could possibly be, derived from its bounding box - <b>can</b> even occupy a certain area on screen (as opposed to being behind some other static object from the reprojected depth).</p>
+    <p>If our object's worst-case depth lands between the minimum and maximum depth represented by a certain mip texel <b>and</b> is at the edge of the bounding box, we can recursively check if the data stored in the underlying mip's texels makes this decision more obvious. Otherwise, we have to draw the object on screen.</p>
+    <img src="assets/img/occc1.png">
+  </entry>
+
+  <entry class="blue">
+    <h2>Renderer Architecture: Objects &amp; LODs</h2>
+    <p>To achieve fully GPU driven render object streaming and for some significant throughput advancements, we'd only like to stream full chunks of static render objects to the GPU as a simple list of render object instances to generate a lodded multi-draw-indirect-buffer.</p>
+    <p>New chunks are simply supplied to the renderer as a list of such render object descriptors (position, rotation, scale). As the descriptors need to be able to look up information about the corresponding render objects, common to all render object instances (bounding boxes, vertex &amp; buffer offsets, etc.), we want this lookup to be a simple index lookup on the GPU side, we allocate space for each distinct render object into a pool of Render Object Information.</p>
+    <code>
+struct render_object_instance
+<br/>{
+<br/>&ensp;&ensp;uint32_t id; // renderer turns this into a pool idx
+<br/>&ensp;&ensp;vec3f pos, rotationAngles;
+<br/>&ensp;&ensp;float scale;
+<br/>};
+    </code>
+    <p>Now, for every chunk the compute shader which generates the multi-draw-indirect-buffer is called once, with the offset and size of the corresponding list of render objects.</p>
+    <p>Here, we can now do all sorts of culling operations and determine the correct LOD to be used for this draw-call.</p>
+    <h3>GPU driven LOD streaming</h3>
+    <p>So far, we've simply assumed, that all LODs have been loaded and are available to the compute shader. However, we most likely don't even wanna stream in all of those LODs - at least in most cases.</p>
+    <p>By simply adding a <mono>requestCount</mono> to our Render Object Information for each object, we can simply atomically increment (can also be weighted by importance / size) whenever an LOD is being requested or drawn.</p>
+    <p>After each frame the CPU-side iterates over the occupied slots of the pool, finds the missing LODs with the most requests and forwards it to the asset-streaming subsystem, which will asynchronously read, prepare and upload the LOD's mesh data to the GPU. Prioritization is handled via the <mono>requestCount</mono>.</p>
+    <p>As even loaded LODs are marked this way, the <b>unloading</b> of LODs can be handled in a similar fashion. Obviously, the <mono>requestCount</mono> needs to be reset after every frame.</p>
+    <code>
+struct gpu_lod_info
+<br/>{
+<br/>&ensp;&ensp;uint32_t vertexOffset; // offset into the vertex mega-buffer.
+<br/>&ensp;&ensp;uint32_t indexOffset; // offset into the index mega-buffer.
+<br/>&ensp;&ensp;uint32_t indexCount; // number of indices to be drawn; 0: not loaded.
+<br/>&ensp;&ensp;uint32_t requestedCount; // number of draw requests during the last frame.
+<br/>};
+    </code>
+  </entry>
+
+  <entry class="green">
+    <img class="header" src="assets/img/plant0.jpg" />
+    <h2>Vegetation Rendering</h2>
+    <p>Although vegetation may be very complex to portray accurately in a real-time rendering engine, there are a couple of different factors, that combine to give a relatively cheap, but still somewhat realistic impression of actual plant behavior. Tree trunks might be able to get away with relying on good rendering fundamentals, branches might be happy with the first two components, but especially large leaves require a whole set of tricks to achieve a convincing look. So, let's go step-by-step, from basic to specialized.</p>
+    <h4>Good Fundamentals</h4>
+    <p>As already mentioned, good fundamental rendering techniques can already carry some of the weight when dealing with large pieces of vegetation: So, normal-mapping, shadows and physically based rendering from other parts of the rendering pipeline are also very useful here. Normal-Mapping specifically is crucial to the look, mimicking complex geometric detail on the comparably flat surfaces of leaves and bark of trees.</p>
+    <p>For this demo, we've merely applied normal maps and simulated a linear block of shadow, as this wasn't too distracting from the overall picture when trying to experiment with the more specialized components.</p>
+    <h4>Wind</h4>
+    <p>Now, a concept that's relevant for all but the thickest tree trunks - especially leaves, twigs and smaller branches - is the property of swaying in the wind. To achieve somewhat realistic swaying behavior, every vertex data contains - apart from positional and normal vector information - a weight, representing how impacted the vertex should be by the local wind vector (global wind vectors will look too uniform over a large scene and break the illusion fairly quickly). If an area touches - or is very close to - the ground, the vertex weight is zero (we don't want vegetation to be floating around, whilst penetrating the ground!), and for the thinnest tips of leaves the weight is one.</p>
+    <p>For branches it may be sufficient to simply apply the wind vector directly, whereas for larger leaves it would be ideal to take the overall &quot;springyness&quot; of the leaf and the leaf-internal forces into account. This will (hopefully) be explored further in the future.</p>
+    <img src="assets/img/plant1.jpg" />
+    <h4>Backside Shadowing</h4>
+    <p>As leaves are usually very thin, so, when viewing the unlit backside, we'd expect to see the light &amp; shadows pass through the leaf structure to the other side. Thankfully <mono>gl_FrontFacing</mono> makes quick work of distinguishing between the front &amp; backside, so we can simply flip the surface normal on the backside.</p>
+    <h4>Subsurface Density</h4>
+    <p>Lastly, leaves obviously have varying depth &amp; density from the various veins passing through the leaf - even though we're simply representing the leaf with a bunch of flat planes. When viewing the leaf from the backside, we can derive our coloring based on this subsurface density and if the backside is being lit, alter the color of the light passing through the leaf to be darkened by the subsurface map.</p>
+    <img class="small" src="assets/img/plant2.jpg" />
+    <br/>
+    <h3>Shader-Level (Bi-)Tangent Vector Calculation</h3>
+    <p>Going on a slight tangent (😉), in order to apply normal maps to our vertex normals, we need tangent and bitangent vectors for our normal. These are commonly precalculated and stored alongside the other vertex data, but - as they can simply be calculated from the texture coordinate &amp; world position of a mesh - they can also be calculated in a shader.</p>
+    <h4>Geometry Shader (Bi-)Tangent Generation</h4>
+    <p>As the tangent &amp; bitangent vectors are identical within each triangle, they can simply be generated in a geometry shader from the world position and texture coordinates as follows.</p>
+    <code>
+vec3 edge0 = gPosition[1] - gPosition[0];
+<br/>vec3 edge1 = gPosition[2] - gPosition[0];
+<br/>vec2 deltaUV0 = gTexCoord[1] - gTexCoord[0];
+<br/>vec2 deltaUV1 = gTexCoord[2] - gTexCoord[0];
+<br/>
+<br/>vec3 tangent;
+<br/>tangent.x = normalize(deltaUV1.y * edge0.x - deltaUV0.y * edge1.x);
+<br/>tangent.y = normalize(deltaUV1.y * edge0.y - deltaUV0.y * edge1.y);
+<br/>tangent.z = normalize(deltaUV1.y * edge0.z - deltaUV0.y * edge1.z);
+<br/>
+<br/>vec3 bitangent;
+<br/>bitangent.x = normalize(-deltaUV1.x * edge0.x + deltaUV0.x * edge1.x);
+<br/>bitangent.y = normalize(-deltaUV1.x * edge0.y + deltaUV0.x * edge1.y);
+<br/>bitangent.z = normalize(-deltaUV1.x * edge0.z + deltaUV0.x * edge1.z);
+    </code>
+    <h4>Fragment Shader (Bi-)Tangent Generation</h4>
+    <p>For the sake of completeness and to validate, that our results are correct, we may also calculate tangent &amp; bitangent vectors per fragment. Assuming decent occlusion culling, this is gonna result in a lot more work, as the same values will be generated for each fragment within a triangle.</p>
+    <code>
+vec3 pos_diff_x = dFdx(fWorldPos);
+<br/>vec3 pos_diff_y = dFdy(fWorldPos);
+<br/>vec2 tex_coord_diff_x = dFdx(fTexCoord);
+<br/>vec2 tex_coord_diff_y = dFdy(fTexCoord);
+<br/>vec3 tangent = normalize(pos_diff_x * tex_coord_diff_y.y - pos_diff_y * tex_coord_diff_x.y);
+<br/>vec3 bitangent = normalize(-pos_diff_x * tex_coord_diff_y.x + pos_diff_y * tex_coord_diff_x.x);
+    </code>
+  </entry>
+
+  <entry class="blue">
+    <h2>Binary Serialization via Type-Seggregated Buffer Compression</h2>
+    <p>In order to serialize generated assets into a custom model format, we need a minimal, fast &amp; adaptable (de-)serialization API.</p>
+    <p>As discussed <a href="https://gafferongames.com/post/serialization_strategies/">by gaffer on games</a>, in order to achieve single-function de-/serialization per object, we introduce a similar API with a custom serialization-<mono>context</mono> input parameter.</p>
+    <code>
+      ERROR_CHECK(io_value(context, self.verts)); // list of vec3f<br/>
+      ERROR_CHECK(io_value(context, self.triVertIndices)); // list of uint16_t<br/>
+      ERROR_CHECK(io_enum_as_int(context, self.mirrorAxis)); // enum
+    </code>
+    <p>Our serialization context now collects values of different types into separate arrays and when reaching the end of the stream, we can simply RLE-compress, Reference &amp; Integer-Encode (where applicable) all the collected values per type to get a significantly reduced output size. By collecting symbols on-the-fly into a recent, approximate common and most-frequent buffer (upgrading values inside those buffers as we collect them), we can further improve our ease of referencing common values (although, this process is fairly costly upon decompression as well). Rather than just immediately encoding the symbols in a bitstream (which isn't even possible with rANS), we can gather symbol-frequency statistics over the generated symbols into histograms &amp; use those to entropy-encode the symbol stream.</p>
+    <p>Afterwards, the collected symbols can be written to a file-/memory-/network-bytestream of our choosing.</p>
+    <p>Further improvements may be achieved, by meta-compressing the type specific symbol streams, in order to possibly combine commonly succeeding symbols into a separate meta-symbol, etc.</p>
+    <p>One of the limitations of this approach, is that all values need to be collected first (need to reside in RAM at once, rather than being able to be streamed in &amp; out concurrently), and can only be compressed afterwards. However, following a data-oriented approach, this is usually a faster way to do this (compared to the constant context switching of compression &amp; structure descent) and presumably results in a much simpler implementation.</p>
+  </entry>
+
+  <entry class="blue">
+    <img class="header" src="assets/img/voxel_trace_noise1.jpg" />
+    <h2>On Noise Patterns</h2>
+    <p>When having a look at our original global-illumination implementation, there was a large amount of sporadic noise, that didn't result in visually consistent and seemingly smooth lighting. The noise source for this implementation had been a white-noise texture, that was being read at locations tied to the screen and world position &amp; was being offset by a random vector for each frame.</p>
+    <p>Fully random noise (white noise) may lead to long-term convergence to the average, but not necessarily to a stable look over the short term, which is why usually blue (or even custom spacio-temporal) noise is used for such purposes.</p>
+    <p>This may lead to a more "patterned" looking noise texture, but also to a much higher rate of convergence to a visually consistent state.</p>
+    <img src="assets/img/voxel_trace_noise0.jpg">
+    <h3>Voxel Traced Reflections</h3>
+    <p>As global-illumination rays are cast in the deferred section of the render loop, we have access to roughness information associated with the surface of the first bounce. When encountering shiny surfaces - if we're fully respecting and considering surface properties - this can lead to some nice voxel traced reflections. On a per-frame basis, these reflections clearly display the resolution limitations of the voxel grid, although by jiggeling the voxel grid offset slightly over time, one could achieve a much smoother look (as we can observe in a future article). Unfortunately the limited (but also time-dithered) color accuracy is quite obvious here, as we haven't overhauled the noise pipeline on that end yet.</p>
+    <img src="assets/img/voxel_reflect0.jpg">
+  </entry>
+
+  <entry class="blue">
     <img class="header" src="assets/img/decim11.jpg" />
     <h2>Comparing Triangle-Collapse and Edge-Collapse</h2>
-    <p>Sadly, Vertex-Elimination is too limited to really produce any interesting results with reasonably high-poly meshes, as it's decimation floor is relatively high for any given mesh. So, let's only have a look at how Edge-Collapse & Triangle-Collapse fare on some more complex models and what their characteristics are when pushed to their limits.</p>
+    <p>Sadly, Vertex-Elimination is too limited to really produce any interesting results with reasonably high-poly meshes, as it's decimation floor is relatively high for any given mesh. So, let's only have a look at how Edge-Collapse &amp; Triangle-Collapse fare on some more complex models and what their characteristics are when pushed to their limits.</p>
     
     <script>
       addEventListener("load", () => {
@@ -161,7 +359,7 @@
       </tr>
     </table>
 
-    <p><gray>[Model of the Cover & second Image: Eber by noe-3d.at is licensed under Creative Commons Attribution-NonCommercial]</gray></p>
+    <p><gray>[Model of the Cover &amp; second Image: Eber by noe-3d.at is licensed under Creative Commons Attribution-NonCommercial]</gray></p>
   </entry>
 
   <entry class="blue">
@@ -190,7 +388,7 @@
   <entry class="blue">
     <img class="header" src="assets/img/decim7.jpg" />
     <h2>Mesh Decimation by Triangle Collapse</h2>
-    <p>As our Vertex-Elimination Decimation had too many caveats to be used as a general purpose decimation algorithm - and even ran into problems with our target of terrain decimation - we'll have to come up with a different solution. So, let's try to address the largest problems we ran into: Dependency on &quot;nice&quot; geometry, that we'd end up ruining eventually anyways & needing to do extra steps to fix vertex-ordering in triangles, if requested.</p>
+    <p>As our Vertex-Elimination Decimation had too many caveats to be used as a general purpose decimation algorithm - and even ran into problems with our target of terrain decimation - we'll have to come up with a different solution. So, let's try to address the largest problems we ran into: Dependency on &quot;nice&quot; geometry, that we'd end up ruining eventually anyways &amp; needing to do extra steps to fix vertex-ordering in triangles, if requested.</p>
     <p>So how about if we don't start with vertices or lines - which may be part of complex polygons, but rather with triangles: Simply picking a triangle and collapsing it onto its barycenter should allow us to decimate even the most complex of meshes - with the downside, that with every collapse operation, we necessarily introduce a certain amount of inaccuracy, which may carry over into future collapses.</p>
     <img src="assets/img/decim8.png">
     <br>
@@ -226,7 +424,7 @@
     <img class="header" src="assets/img/decim2.jpg" />
     <h2>Mesh Decimation by Vertex Elimination</h2>
     <p>Since Border-Alternating Terrain LODs require full control over <b>which</b> triangles are decimated, a custom mesh decimation algorithm is needed - and even if not, it'd be very convenient to have a fast, reliable &amp; flexible way of decimation at our finger tips.</p>
-    <p>So decimating a mesh by eliminating the least-relevant vertices seemed like a novel & fast solution to the problem. But first, how do we want to eliminate those least-relevant vertices?</p>
+    <p>So decimating a mesh by eliminating the least-relevant vertices seemed like a novel &amp; fast solution to the problem. But first, how do we want to eliminate those least-relevant vertices?</p>
     <img class="small" src="assets/img/decim3.png">
     <br>
     <p>Let's assume, we have this geometry-fragment, and we've determined, that the tip of this shape is the vertex we'd like to eliminate. In order to remove said vertex from our object, we have to ensure, that all neighboring vertices that previously connected to the tip do now connect to one another. So, by observing the <i>other</i> vertices in all triangles connected with our chosen vertex, we can construct the polygon(s) of the resulting area. After sorting neighboring triangles into coherent polygons by finding common (= overlapping) vertices (which can be a bit tricky with &quot;open&quot; meshes or at the rims of mesh fragments, as there may not be any further overlapping vertices after a certain point, but still some triangles left to process), the polygon(s) can simply be triangulated and the chosen vertex has been eliminated.</p>
@@ -244,10 +442,10 @@
     <code>
       Error Calculation (incl. triangulation of base): 632,974 tris in 0.06161 s (3,449,320 non-skipped /s).<br>
       Error Sorting: 0.02669 s (11,859,484 /s).<br>
-      Elimination & Re-Triangulation for 150,081 verts: 0.60876 s (246,536 /s).<br><br>
+      Elimination &amp; Re-Triangulation for 150,081 verts: 0.60876 s (246,536 /s).<br><br>
       Decimated 316,481 verts, 632,974 tris to 166,400 verts, 332,812 tris. (removed 15,0081 verts, 300,162 tris)
     </code>
-    <p>This required an incredibly fast chunked list data-structure to be written, which allows for blazingly fast random removals & inserts (removing old error values in a sorted list, inserting new error values at the correct position) and a bunch of other little tricks.</p>
+    <p>This required an incredibly fast chunked list data-structure to be written, which allows for blazingly fast random removals &amp; inserts (removing old error values in a sorted list, inserting new error values at the correct position) and a bunch of other little tricks.</p>
     <br>
     <h3>Complications</h3>
     <p>What should now be somewhat apparent from the Performance Output above is, that many of the vertices needed to be skipped, as it would've been too complex to triangulate the resulting geometry. This usually isn't as terrible with smaller models, but heavily impacts the flexibility of this algorithm. What can be somewhat worked around, but isn't particularly pleasing about this approach is, that triangle vertex-ordering (which is sometimes used to determine normal directions and allows for front- or backface culling) isn't automatically preserved and needs to be <i>fixed</i> during the decimation process, if this behavior is relevant.</p>
@@ -299,7 +497,7 @@
     </code>
     <p>Now one can simply recursively iterate over tiles by starting at the root, splitting every tile that is sufficiently close and loading in all sibling tiles that need to be loaded alongside a given child.</p>
     <br>
-    <h3>Handling Procedural Geometry & Mesh Fragments</h3>
+    <h3>Handling Procedural Geometry &amp; Mesh Fragments</h3>
     <p>As we always need to know the vertices higher-resolution LOD layers in advance, it's highly recommended to generate such LODs with a bottom-up approach, as otherwise it's much more cumbersome to force our current LOD's vertices to match up with higher-resolution ones we haven't even seen yet. When doing so for partially loaded Meshes (especially common when procedurally generating or manipulating the underlying geometry), generating higher LOD layers with matching <b>outer</b> vertices (yes, not the <i>inner</i> vertices, that match up with higher LODs, but ones that need to match up with <b>neighboring</b> tiles of the <b>same</b> LOD level) can be tricky to handle. This is because neighboring LODs will be decimated <b>separately</b>, but we need to ensure that both we and them pick the <b>same</b> vertex positions on the rims of our tiles, as we'd end up with gaps between triangles otherwise. An easy strategy to handle this, is to <b>manually</b> Edge-Collapse every second vertex on the rim onto its neighbor, then mark the remaining rim vertices as immutable, <b>before</b> the entire tile is decimated to the desired level. This doesn't necessarily result in the most <i>pleasing</i> geometry, but it ensures <i>consistency</i> between the tiles and prevents any gaps from forming.</p>
   </entry>
 
@@ -383,7 +581,7 @@
     <p>The original implementation was already capable of processing hundreds of thousands of triangles per second, but the utilization of the texture area wasn't particularly good, as the coverage quadtree initially preferred placing triangle clusters at high-layer node positions. This left arbitrarily sized holes in the quadtree that are neither particularly easy to find, when looking for available space for future clusters nor necessarily good spots to place clusters into, as the total available area is quickly fragmented by the first couple of clusters.</p>
     <p>We'd much prefer clusters to be placed closer to existing clusters, so we'll modify the atlas slightly: After the final dimensions have been found, we allow the quadtree to attempt to move the current bounds to the top left by one node per layer if possible. This achieves much better atlas coverage - still not optimal, but improved to the point that models with double the unit-size can consistently fit into the atlas now. Apart from the coverage benefits, for some models this ends up positively impacting the runtime performance as well, as it's much faster to find empty spots with the improved coverage.</p>
     <p>After a bunch of smaller optimization (mostly bloom-filters to avoid costlier randomish-memory-access-dependent-conditionals) we're somewhere between handling <b>500k - 1M Triangles per Second</b> on a single thread.</p>
-    <h3>Stanford Dragon Texture Coordinates & Model Render</h3>
+    <h3>Stanford Dragon Texture Coordinates &amp; Model Render</h3>
     <img src="assets/img/atlas3.jpg">
     <p>To actually get a decent performance benchmark of the texture atlas, I fed it the entire stanford dragon model (<b>871k Triangles</b>), as well as a bunch of other large standard models (like a simplified version of Stanford Lucy).</p>
     <code>
@@ -415,18 +613,18 @@
   
   <entry>
     <img class="header" src="assets/img/pixel0.png" />
-    <h2>Pixels, Shell Texturing & Grass Height</h2>
+    <h2>Pixels, Shell Texturing &amp; Grass Height</h2>
     <p>Achieving tripple-A quality graphics isn't entirely feasible with just the limited time of one person, so choosing a distinct, pleasant, and lower-fidelity art-style is very important. To force myself to think more about the broad picture than the low-level details, I halved the display resolution, using my trusty old aliasing-pixelartify algorithm for a neat pixely look.</p>
     <p>Now to the fun part: Moss. Well, shell texturing.</p>
     <p>To supplement the grass and enable moss growth on rocks and other similar surfaces, we create a vegetation-height map that is a half-terrain-resolution approximation of the height of grass - or only moss, if the values are too low to allow grass to grow. We can now color the grass depending on the length to achieve some more visual interest.</p>
-    <p>For moss, we create two LODs of instanced heightmap textures with varying height attribute. We create a moss height, normal direction & color change texture that is statically used for all moss and sample the depth from this texture in the fragment shader to conditionally discard (I don't want to, but alpha blending would be a lot worse) fragments.</p>
+    <p>For moss, we create two LODs of instanced heightmap textures with varying height attribute. We create a moss height, normal direction &amp; color change texture that is statically used for all moss and sample the depth from this texture in the fragment shader to conditionally discard (I don't want to, but alpha blending would be a lot worse) fragments.</p>
     <p>Giving the height channel some bumps here and there and sampling a different color depending on the moss height leaves us with a nice fluffy mossy texture that nicely complements the grass.</p>
     <img src="assets/img/pixel1.png">
   </entry>
 
   <entry>
     <img class="header" src="assets/img/grass0.jpg" />
-    <h2>Grass Rendering & Chunk View Culling</h2>
+    <h2>Grass Rendering &amp; Chunk View Culling</h2>
     <p>Flat untextured terrain however isn't particularly pleasing to look at, so - after implementing a chunk view culling system and reducing the draw-calls for terrain rendering to one draw-call per chunk type and refactoring the renderer a bit, let's have a look at grass rendering.</p>
     <p>I'm not the biggest fan of alpha textured grass rendering as the constant overdraw fragment discarding sounds very unpleasant to me. As modern GPUs are capable of rendering a lot of instanced geometry very quickly and having individual segmented blades of grass allows for nice curving grass in the wind, we'll use that approach. Depending on how close the chunk containing the grass is to the camera, we'll use a different LOD on the grass segmentation as even reasonably close chunks can visually represent blades of grass with just a single triangle without a perceptual loss in quality.</p>
     <p>This doesn't cover chunks yet, that are further off in the distance, but depending on how well we can tune the shaders later on, we might be able to either render billboards with large amounts of grass, or even fake the existence of grass entirely with a decent grass-landscape texture.</p>
@@ -434,8 +632,8 @@
 
   <entry class="blue">
     <img class="header" src="assets/img/scape6.jpg" />
-    <h2>Terrain Chunk Streaming & Atmospheric Effects</h2>
-    <p>In order to traverse such a large scale terrain, LOD & streaming need to be considered immediately. Chunks of different sizes are streamed into fixed-size textures and are dynamically loaded when needed.</p>
+    <h2>Terrain Chunk Streaming &amp; Atmospheric Effects</h2>
+    <p>In order to traverse such a large scale terrain, LOD &amp; streaming need to be considered immediately. Chunks of different sizes are streamed into fixed-size textures and are dynamically loaded when needed.</p>
     <p>Whenever a large chunks would contain a chunk with vertexes that are closer than a set distance from the camera, the chunk is split and the contained chunks of higher fidelity are streamed in.</p>
     <p>To reduce the pop-in artifacts usually seen in even tripple-A productions, we use local maxima - rather than average terrain height - to construct LODs.</p>
     <p>Obviously this leaves visible gaps in the landscape wherever multiple chunk-types meet, but we'll deal with specific meshes to solve this problem at a later date.</p>
@@ -477,7 +675,7 @@
   <entry class="blue">
     <img class="header" src="assets/img/scape4.jpg" />
     <h2>Micro-Biome Extraction</h2>
-    <p>After the terrain has been generated and eroded, regions need to be classified into biomes based on the physical properties of their surroundings. To calculate these biomes like various grass types wherever the top soil is grass a noise map can be sampled. However this isn't entirely accurate as especially regional & global elevation changes and water proximity can influence biome parameters significantly.</p>
+    <p>After the terrain has been generated and eroded, regions need to be classified into biomes based on the physical properties of their surroundings. To calculate these biomes like various grass types wherever the top soil is grass a noise map can be sampled. However this isn't entirely accurate as especially regional &amp; global elevation changes and water proximity can influence biome parameters significantly.</p>
     <p>Therefore we compute a signed distance field of water and one that maps terrain height, blur the height map over a large area and then compute the local difference to an areas neighbors. This leaves us with the water map and the map shown above for local terrain elevation changes.</p>
     <p>Using these two maps and a noise buffer, we can derive micro-biome features like mossy stones near water or in crests, small puddles can be turned to mud, large elevation change inhibit the growth of trees or tall grass, ...</p>
     <img src="assets/img/scape5.jpg">
@@ -486,7 +684,7 @@
   <entry class="blue">
     <img class="header" src="assets/img/scape2.jpg" />
     <h2>Wind Erosion</h2>
-    <p>With our newly developed surface wind simulation, we can now erode the surface terrain. Terrain that's close to the wind height will be eroded more than terrain that's further from it and wind speeds influence how far particles are dragged when eroded. The various terrain layers have different properties of how easily they can be erroded by wind & water.</p>
+    <p>With our newly developed surface wind simulation, we can now erode the surface terrain. Terrain that's close to the wind height will be eroded more than terrain that's further from it and wind speeds influence how far particles are dragged when eroded. The various terrain layers have different properties of how easily they can be erroded by wind &amp; water.</p>
     <p>As the eroded particles are dragged through the wind, the terrain is iteratively checked for matching height as the particles slowly descend based on their weight.</p>
     <p>Similarly to the wind simulation, eroded particles are added onto a separate buffer and are applied to the new terrain after all cells have completed their erosion procedure.</p>
     <img src="assets/img/scape3.jpg">

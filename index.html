@@ -96,17 +96,17 @@ struct gpu_lod_obj_info
 <br/>};
 </code>
     <p>A more intricate and powerful technique is called Occlusion Culling. Here, we attempt to compare the depth of the projected object or bounding box against a reprojected depth buffer from the previous frame (which may additionally include some static close objects being re-rendered on top, to combat gaps in the reprojected depth buffer).</p>
-    <p>To make those lookups cheaper, we can construct a mip-chain from the depth buffer, which contains both the minimum and maximum depth value of the represented depth-buffer values (as a best- &amp; worst-case depth). To make using this mip-chain simpler, we can simply restrict it to the highest power of two in x and y below the depth buffer resolution.</p>
+    <p>To make those lookups cheaper, we can construct a mip-chain from the depth buffer, which contains both the minimum and maximum depth value of the represented depth-buffer values (as a best- &amp; worst-case depth). To make using this mip-chain much more straightforward (as we can't just assume that it's valid to split a certain texel down the middle and end up in the right place of the next mip), we can simply restrict the reprojected depth map size to the highest power of two in x and y less or equal to the depth buffer resolution.</p>
     <img src="assets/img/occc0.png" style="image-rendering: pixelated;" />
-    <p>Now, with the help of this depth buffer, we can simply check if the worst case depth of our object - so the closest it could possibly be, derived from its bounding box - <b>can</b> even occupy a certain area on screen (as opposed to being behind some other static object from the reprojected depth).</p>
-    <p>If our object's worst-case depth lands between the minimum and maximum depth represented by a certain mip texel <b>and</b> is at the edge of the bounding box, we can recursively check if the data stored in the underlying mip's texels makes this decision more obvious. Otherwise, we have to drwa the object on screen.</p>
+    <p>Now, with the help of this depth buffer mip chain, we can easily check if the worst case depth of our object - so the closest it could possibly be, derived from its bounding box - <b>can</b> even occupy a certain area on screen (as opposed to being behind some other static object from the reprojected depth).</p>
+    <p>If our object's worst-case depth lands between the minimum and maximum depth represented by a certain mip texel <b>and</b> is at the edge of the bounding box, we can recursively check if the data stored in the underlying mip's texels makes this decision more obvious. Otherwise, we have to draw the object on screen.</p>
     <img src="assets/img/occc1.png">
   </entry>
 
   <entry class="blue">
     <h2>Renderer Architecture: Objects &amp; LODs</h2>
     <p>To achieve fully GPU driven render object streaming and for some significant throughput advancements, we'd only like to stream full chunks of static render objects to the GPU as a simple list of render object instances to generate a lodded multi-draw-indirect-buffer.</p>
-    <p>New chunks are simply supplied to the renderer as a list of such render object descriptors (position, rotation, scale). As the Render Objects needs to be able to look up information about the render objects, which is shared between multiple instances, which should be simple indices on the GPU side, we allocate space for each distinct render object into a pool of Render Object Information.</p>
+    <p>New chunks are simply supplied to the renderer as a list of such render object descriptors (position, rotation, scale). As the descriptors need to be able to look up information about the corresponding render objects, common to all render object instances (bounding boxes, vertex &amp; buffer offsets, etc.), we want this lookup to be a simple index lookup on the GPU side, we allocate space for each distinct render object into a pool of Render Object Information.</p>
     <code>
 struct render_object_instance
 <br/>{
@@ -116,10 +116,10 @@ struct render_object_instance
 <br/>};
     </code>
     <p>Now, for every chunk the compute shader which generates the multi-draw-indirect-buffer is called once, with the offset and size of the corresponding list of render objects.</p>
-    <p>Here, we can now do all sorts of culling operations and determine the correct LOD to be used for this drwa-call.</p>
+    <p>Here, we can now do all sorts of culling operations and determine the correct LOD to be used for this draw-call.</p>
     <h3>GPU driven LOD streaming</h3>
     <p>So far, we've simply assumed, that all LODs have been loaded and are available to the compute shader. However, we most likely don't even wanna stream in all of those LODs - at least in most cases.</p>
-    <p>By simply adding a <mono>requestCount</mono> to our Render Object Information for each object, we can simply atomically increment (can also be weighted by imporance / size) whenever an LOD is being requested or drawn.</p>
+    <p>By simply adding a <mono>requestCount</mono> to our Render Object Information for each object, we can simply atomically increment (can also be weighted by importance / size) whenever an LOD is being requested or drawn.</p>
     <p>After each frame the CPU-side iterates over the occupied slots of the pool, finds the missing LODs with the most requests and forwards it to the asset-streaming subsystem, which will asynchronously read, prepare and upload the LOD's mesh data to the GPU. Prioritization is handled via the <mono>requestCount</mono>.</p>
     <p>As even loaded LODs are marked this way, the <b>unloading</b> of LODs can be handled in a similar fashion. Obviously, the <mono>requestCount</mono> needs to be reset after every frame.</p>
     <code>
@@ -138,10 +138,10 @@ struct gpu_lod_info
     <h2>Vegetation Rendering</h2>
     <p>Although vegetation may be very complex to portray accurately in a real-time rendering engine, there are a couple of different factors, that combine to give a relatively cheap, but still somewhat realistic impression of actual plant behavior. Tree trunks might be able to get away with relying on good rendering fundamentals, branches might be happy with the first two components, but especially large leaves require a whole set of tricks to achieve a convincing look. So, let's go step-by-step, from basic to specialized.</p>
     <h4>Good Fundamentals</h4>
-    <p>As already mentioned, good fundamental rendering techniques can already carry some of the weight when dealing with large pieces of vegetation: So, normal-mapping, shadows and physically based rendering from other parts of the rendering pipeline are also very useful here. Normal-Mapping specifically is crucial here to mimick complex geometry on leaves and bark of trees.</p>
+    <p>As already mentioned, good fundamental rendering techniques can already carry some of the weight when dealing with large pieces of vegetation: So, normal-mapping, shadows and physically based rendering from other parts of the rendering pipeline are also very useful here. Normal-Mapping specifically is crucial to the look, mimicking complex geometric detail on the comparably flat surfaces of leaves and bark of trees.</p>
     <p>For this demo, we've merely applied normal maps and simulated a linear block of shadow, as this wasn't too distracting from the overall picture when trying to experiment with the more specialized components.</p>
     <h4>Wind</h4>
-    <p>Now, a property that's crucial for all but some of the thickest trunks - from leaves to twigs to branches, is swaying in the wind. To achieve somewhat realistic swaying behavior, every vertex is stored alongside a weight, representing how impacted the vertex should be by the local wind vector (global wind vectors will look too uniform over a large scene and break the illusion fairly quickly). If an area touches - or is very close to - the ground, the vertex weight is zero (we don't want vegetation to be floating around, whilst penetrating the ground!), and for the thinnest tips of leaves the weight is one.</p>
+    <p>Now, a concept that's relevant for all but the thickest tree trunks - especially leaves, twigs and smaller branches - is the property of swaying in the wind. To achieve somewhat realistic swaying behavior, every vertex data contains - apart from positional and normal vector information - a weight, representing how impacted the vertex should be by the local wind vector (global wind vectors will look too uniform over a large scene and break the illusion fairly quickly). If an area touches - or is very close to - the ground, the vertex weight is zero (we don't want vegetation to be floating around, whilst penetrating the ground!), and for the thinnest tips of leaves the weight is one.</p>
     <p>For branches it may be sufficient to simply apply the wind vector directly, whereas for larger leaves it would be ideal to take the overall &quot;springyness&quot; of the leaf and the leaf-internal forces into account. This will (hopefully) be explored further in the future.</p>
     <img src="assets/img/plant1.jpg" />
     <h4>Backside Shadowing</h4>
@@ -205,7 +205,7 @@ vec3 pos_diff_x = dFdx(fWorldPos);
     <p>This may lead to a more "patterned" looking noise texture, but also to a much higher rate of convergence to a visually consistent state.</p>
     <img src="assets/img/voxel_trace_noise0.jpg">
     <h3>Voxel Traced Reflections</h3>
-    <p>As global-illumination rays are cast in the deferred section of the render loop, we have roughness information associated with the surface of the first bounce. When encountering shiny surfaces - if we're fully respecting and considering surface properties - this can lead to nice voxel traced reflections. On a per-frame basis, these reflections clearly display the resolution limitations of the voxel grid, although by jiggeling the voxel grid offset slightly over time, one could achieve a much smoother look. Unfortunately the limited (but also time-dithered) color accuracy limitations are quite obvious here, as we haven't overhauled the noise pipeline on that end yet.</p>
+    <p>As global-illumination rays are cast in the deferred section of the render loop, we have access to roughness information associated with the surface of the first bounce. When encountering shiny surfaces - if we're fully respecting and considering surface properties - this can lead to some nice voxel traced reflections. On a per-frame basis, these reflections clearly display the resolution limitations of the voxel grid, although by jiggeling the voxel grid offset slightly over time, one could achieve a much smoother look (as we can observe in a future article). Unfortunately the limited (but also time-dithered) color accuracy is quite obvious here, as we haven't overhauled the noise pipeline on that end yet.</p>
     <img src="assets/img/voxel_reflect0.jpg">
   </entry>
 

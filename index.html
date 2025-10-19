@@ -26,7 +26,37 @@
     <h2>Raster Graphics Signed Distance Field Generation</h2>
     <p>So, let's have a look at our fast implementation of generating a SDF from a rastered alpha channel:</p>
     <h3>Step 1: Upscaling</h3>
+    <p>As we don't want to restrict the threshold-gradients to exact pixels in the target resolution, we first upscale the alpha channel - in our case, by a factor of four. Notably, we <b>don't</b> use bilinear interpolation for this purpose - but rather a more expensive interpolation method. In our case that's, Bicubic Interpolation.</p>
     <h3>Step 2: Applying the threshold</h3>
+    <p>Now, we iterate over every pixel of the image taking into account the surrounding 3x3 area and perform the following operation:</p>
+    <ul>
+      <li>Are all pixels in the 3x3 area &lt; the threshold?
+        <ul>
+          <li>Then mark the center pixel as <mono>-&infin;</mono></li>
+        </ul>
+      </li>
+      <li>Are all pixels in the 3x3 area &gt; the threshold?
+        <ul>
+          <li>Then mark the center pixel as <mono>+&infin;</mono></li>
+        </ul>
+      </li>
+      <li>Of all the values in our 3x3 neighborhood, are no pixels <i>closer</i> to the threshold than the center pixel?
+        <ul>
+          <li>Then mark the center pixel as <mono>0</mono></li>
+        </ul>
+      </li>
+      <li>Otherwise: Are we &lt; the threshold
+        <ul>
+          <li>Then mark the center pixel as <mono>-&infin;</mono></li>
+        </ul>
+      </li>
+      <li>Otherwise: (We are &gt; the threshold)
+        <ul>
+          <li>Then mark the center pixel as <mono>+&infin;</mono></li>
+        </ul>
+      </li>
+    </ul>
+    <p>This yields a <i>rough</i> starting point for our SDF as the resulting values are already in the correct range, so we copy the result to our upscaled-resolution SDF texture.</p>
     <h3>Step 3: Generating the SDF</h3>
     <code>
         void apply_distance(int8_t &amp;value, const int8_t offered_distance)
@@ -37,9 +67,10 @@
     </code>
     <p>Please note the cast to <mono>int16_t</mono>, as <mono>-(-128)</mono> is not representable in <mono>int8_t</mono>!</p>
     <h3>Step 4: Downscaling</h3>
+    <p>Now, we can simply downscale our generated SDF by pixel averaging and bring the values into our expected output range (signed <mono>-128 ~ 127</mono> to unsigned <mono>0 - 255</mono>), yielding our approximate low-resolution output SDF.</p>
+    <p>Here's a step by step view of how a particular segment of our alpha channel transforms through the algorithm described above:</p>
     <img src="assets/img/sdf3.png">
     <br/>
-    <p></p>
     <h2>Utilizing the Signed Distance Field Alpha Channel</h2>
     <p>Surprisingly, as we've already been using a hard threshold to decide whether a given pixel shall be discarded, the changes to make use of our new SDFs are rather minimal. We've previously been using our alpha-cutoff at 0.3, but as now our cutoff point has moved to the middle of the value range representing 0 as 0.5, the sole change that is required to correctly utilize the SDFs is merely this:</p>
     <table class="code-diff">

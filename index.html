@@ -14,7 +14,7 @@
   <entry class="green">
     <img class="header" src="assets/img/sshad0.jpg" />
     <h2>Signed Distance Field Vegetation Alpha Testing</h2>
-    <p>As with deferred rendering there's usually no alpha testing, usually the transparency borders of alpha tested objects exhibit artifacts from biliniar interpolation:</p>
+    <p>As with deferred rendering there's usually no alpha blending, but just a hard cutoff, usually the transparency borders of alpha tested objects exhibit artifacts from biliniar interpolation:</p>
     <p>A common technique to deal with a similar issue in font-rendering, is to rasterize the font as a signed-distance-field (SDF), which also enables a bunch of other neat advantages, like outlines and variable thickness at no additional rasterization-cost.</p>
     <gray style="float: right;"><a href="https://libgdx.com/wiki/graphics/2d/fonts/distance-field-fonts">Source</a></gray>
     <img class="small" src="assets/img/sdf2.png">
@@ -35,12 +35,13 @@
     <br>&emsp;&emsp;value = abs((int16_t)value) &lt; offered_distance ? value : dist_option;
     <br>}
     </code>
+    <p>Please note the cast to <mono>int16_t</mono>, as <mono>-(-128)</mono> is not representable in <mono>int8_t</mono>!</p>
     <h3>Step 4: Downscaling</h3>
     <img src="assets/img/sdf3.png">
     <br/>
     <p></p>
     <h2>Utilizing the Signed Distance Field Alpha Channel</h2>
-    <p>Surprisingly, as we've already been using a hard threshold to decide whether a given pixel shall be discarded, the changes to make use of our new SDFs are rather minimal. We've previously been using our alpha-cuttoff at 0.3, but as now our cuttoff point has moved to the middle of the value range representing 0 as 0.5, the sole change that is required to correctly utilize the SDFs is merely this:</p>
+    <p>Surprisingly, as we've already been using a hard threshold to decide whether a given pixel shall be discarded, the changes to make use of our new SDFs are rather minimal. We've previously been using our alpha-cutoff at 0.3, but as now our cutoff point has moved to the middle of the value range representing 0 as 0.5, the sole change that is required to correctly utilize the SDFs is merely this:</p>
     <table class="code-diff">
       <tr class="diff">
         <td>

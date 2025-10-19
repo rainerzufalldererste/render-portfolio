@@ -14,6 +14,33 @@
   <entry class="green">
     <img class="header" src="assets/img/sshad0.jpg" />
     <h2>Signed Distance Field Vegetation Alpha Testing</h2>
+    <p>As with deferred rendering there's usually no alpha testing, usually the transparency borders of alpha tested objects exhibit artifacts from biliniar interpolation:</p>
+    <p>A common technique to deal with a similar issue in font-rendering, is to rasterize the font as a signed-distance-field (SDF), which also enables a bunch of other neat advantages, like outlines and variable thickness at no additional rasterization-cost.</p>
+    <gray style="float: right;"><a href="https://libgdx.com/wiki/graphics/2d/fonts/distance-field-fonts">Source</a></gray>
+    <img class="small" src="assets/img/sdf2.png">
+    <br/>
+    <p>To generate this SDF, we don't rasterize the font itself, but for every pixel store the distance to the nearest outline. If we're inside the glyph, we simply keep the <i>positive</i> value of the distance, if we're outside the font, however, we give it a <i>negative</i> sign.</p>
+    <p>As the texture is much more homogenious around the critical edges now, biliniar interpolation will do a <i>much</i> better job and we can still achieve nice (even sub-pixel) anti-aliased borders by - rather than simply discarding interpolated pixels with values &lt 0 - we apply a slight gradient to the alpha channel.</p>
+    <p>To apply this technique to our vegetation textures, however, isn't as straightforward as it may seem. Calculating the exact distance to an outline is somewhat trivial for vector graphics, but for raster graphics - like our vegetation textures - this isn't as straightforward, as the textures may contain completely smooth alpha gradients and even <i>if</i> there are clear lines between transparent and opaque areas, the exact border may lie somewhere between our discrete pixels.</p>
+    <br>
+    <h2>Raster Graphics Signed Distance Field Generation</h2>
+    <p>So, let's have a look at our fast implementation of generating a SDF from a rastered alpha channel:</p>
+    <h3>Step 1: Upscaling</h3>
+    <h3>Step 2: Applying the threshold</h3>
+    <h3>Step 3: Generating the SDF</h3>
+    <code>
+        void apply_distance(int8_t &amp;value, const int8_t offered_distance)
+    <br>{
+    <br>&emsp;&emsp;const int8_t dist_option = v &lt; 0 ? -offered_distance : offered_distance;
+    <br>&emsp;&emsp;value = abs((int16_t)value) &lt; offered_distance ? value : dist_option;
+    <br>}
+    </code>
+    <h3>Step 4: Downscaling</h3>
+    <img src="assets/img/sdf3.png">
+    <br/>
+    <p></p>
+    <h2>Utilizing the Signed Distance Field Alpha Channel</h2>
+    <p>Surprisingly, as we've already been using a hard threshold to decide whether a given pixel shall be discarded, the changes to make use of our new SDFs are rather minimal. We've previously been using our alpha-cuttoff at 0.3, but as now our cuttoff point has moved to the middle of the value range representing 0 as 0.5, the sole change that is required to correctly utilize the SDFs is merely this:</p>
     <table class="code-diff">
       <tr class="diff">
         <td>
@@ -32,6 +59,9 @@
         </td>
       </tr>
     </table>
+    <p>As blending would intruduce nonsensical values into our G-Buffer, there's no need to do the threshold-widening anti-aliasing approach commonly used with font-renderers for our deferred renderer, hence no further changes are needed.</p>
+    <br/>
+    <h2>Visual Improvements</h2>
   </entry>
 
   <entry class="green">
@@ -44,6 +74,7 @@
   <entry class="green">
     <img class="header" src="assets/img/sshad0.jpg" />
     <h2>Vegetation Shadows</h2>
+    <li>light view offsetting</li>
     <li>light-space offsetting</li>
   </entry>
 

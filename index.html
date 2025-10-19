@@ -12,9 +12,9 @@
   <div class="title"></div>
 
   <entry class="green">
-    <img class="header" src="assets/img/sshad0.jpg" />
+    <img class="header" src="assets/img/sdf0.jpg" />
     <h2>Signed Distance Field Vegetation Alpha Testing</h2>
-    <p>As with deferred rendering there's usually no alpha blending, but just a hard cutoff, usually the transparency borders of alpha tested objects exhibit artifacts from biliniar interpolation:</p>
+    <p>As with deferred rendering there's usually no alpha blending, but just a hard cutoff, usually the transparency borders of alpha tested objects exhibit artifacts from biliniar interpolation.</p>
     <p>A common technique to deal with a similar issue in font-rendering, is to rasterize the font as a signed-distance-field (SDF), which also enables a bunch of other neat advantages, like outlines and variable thickness at no additional rasterization-cost.</p>
     <gray style="float: right;"><a href="https://libgdx.com/wiki/graphics/2d/fonts/distance-field-fonts">Source</a></gray>
     <img class="small" src="assets/img/sdf2.png">
@@ -63,6 +63,9 @@
     <p>As blending would intruduce nonsensical values into our G-Buffer, there's no need to do the threshold-widening anti-aliasing approach commonly used with font-renderers for our deferred renderer, hence no further changes are needed.</p>
     <br/>
     <h2>Visual Improvements</h2>
+    <p>As the alpha &quot;stepping&quot; arises from bilinearly interpolated harsh alpha transitions, the differences (and issues) are much more pronounced with textures that exhibit large chances in value over only a few pixels, where with signed distance fields, the results become consistent across *all* textures.</p>
+    <p>That said, there is certainly room for improvements with generating our SDFs - but our results aren't meant to compete with advanced multi-channel SDF font rendering approaches, but rather to improve alpha outlines for vegetation rendering.</p>
+    <img src="assets/img/sdf4.png">
   </entry>
 
   <entry class="green">

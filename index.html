@@ -27,6 +27,7 @@
     <p>So, let's have a look at our fast implementation of generating a SDF from a rastered alpha channel:</p>
     <h3>Step 1: Upscaling</h3>
     <p>As we don't want to restrict the threshold-gradients to exact pixels in the target resolution, we first upscale the alpha channel - in our case, by a factor of four. Notably, we <b>don't</b> use bilinear interpolation for this purpose - but rather a more expensive interpolation method. In our case that's, Bicubic Interpolation.</p>
+    <p>This should be sufficiently large to combat artifacts introduced by stray pixels, as they have suffificently large areas to spread over in the upscaled texture.</p>
     <h3>Step 2: Applying the threshold</h3>
     <p>Now, we iterate over every pixel of the image taking into account the surrounding 3x3 area and perform the following operation:</p>
     <ul>
@@ -58,6 +59,31 @@
     </ul>
     <p>This yields a <i>rough</i> starting point for our SDF as the resulting values are already in the correct range, so we copy the result to our upscaled-resolution SDF texture.</p>
     <h3>Step 3: Generating the SDF</h3>
+    <p>To begin with, we generate a distance field around a singular point - this distance field isn't signed but simply contains the Euclidean distance to the center.</p>
+    <p>We will use this static distance field later as a lookup. In our case, the distance field is 33x33 pixels normalizing the distance factors to a distance of 33+1, as otherwise even the edge-pixels in all cardinal directions would end up as zero, making it effectively a 31x31 distance field.</p>
+    <img src="assets/img/sdf1.png">
+    <p>Now, we iterate over all the pixels in our texture, again taking into account the 3x3 area around any given pixels (repeating at the edges) and perform the following operation:</p>
+    <ul>
+      <li>If the center pixel is <mono>0</mono></mono>
+        <ul>
+          <li>We apply our pre-computed distance field to the SDF centered at our current pixel.</li>
+        </ul>
+      </li>
+      <li>If all values in our 3x3 range are either <mono>+&infin;</mono> or <mono>-&infin;</mono>
+        <ul>
+          <li>We leave the corresponding value in our SDF untouched.</li>
+        </ul>
+      </li>
+      <li>Otherwise:</mono>
+        <ul>
+          <li>We average all positive or zero value positions from our 3x3 neighborhood and round them to the next integer.</li>
+          <li>Then, we apply our pre-computed distance field centered on this position.</li>
+        </ul>
+      </li>
+    </ul>
+    <p>To &quot;apply&quot; our pre-computed distance field lookup to the target SDF, we consider the fact, that the smallest distance to a border will be closer to 0 than any other border-distances can be to it, as otherwise <i>they</i> would've been the closest border.</p>
+    <p>Using this logic, we can iteratively update the &quot;best&quot; SDF value with closer and ever closer values until we've visited all gradients.</p>
+    <p>To turn our pre-computed distance field lookup into an SDF, we simply adopt the sign of the value that currently resides in the SDF onto our new offered distance, yielding:</p>
     <code>
         void apply_distance(int8_t &amp;value, const int8_t offered_distance)
     <br>{

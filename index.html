@@ -137,11 +137,15 @@
     <h2>Leaf Shadows</h2>
     <p>The way light-shadows are implemented in traditional rendering pipelines is by additionally drawing the scene from the light's perspective into a depth buffer and then shading the screen-space view by reprojecting the world-space coordinates of the current fragment into the view of the light and comparing the depth inside the light's depth buffer to the depth of the current fragment. As this would result in terrible flickering on the shadow-casting surfaces (due to floating point inaccuracies) a bias is usually applied to the depth values retrieved from the light buffer, in order to slightly shift the shadeed depth behind the shadow casting surface - hence keeping it in the light.</p>
     <p>The problem with this approach becomes apparent, when rendering very thin geometry that's connected to another surface: Due to the slight bias term in the shadowing comparison, the backfaces of the surfaces would still remain in light. This itself is an easy fix, as computing the dot product between the light direction and surface normal allows us to easily discard surfaces, which can not possibly <b>not</b> be shaded, as they're pointing away from the light surface, however, The surrounding geometry will still only enter the shadowed region slightly after the shadow-casting objects position.</p>
+    <img class="small" src="assets/img/vegeshadow3.jpg" />
     <br/>
-    <h2>A step in the right direction: Light View Offsetting</h2>
+    <h2>A step in the right direction: Light-View Offsetting</h2>
+    <p>The culprit of the apparent disconnect of the shaded regions is the bias term, which shifts the shaded region away from the shadow's contact point. Simply adjusting the bias terms can reduce the the size of the disconnected region, but only at the cost of lit surfaces ending up with shadow artifacts.</p>
+    <p>Targeting just the issues with the contact shadow disconnects, we can therefore make the following change to the usual shadow rendering pipeline: When drawing the thin leaf geometry to the light depth buffer, we can slightly move the vertex positions of the relevant objects in the opposite direction of the light-source, so, in effect, pre-subtract of the bias term by slightly shifting the rendered geometry towards the light-source. This cancels out the bias term, reducing the disconnected region to zero.</p>
+    <p>Unfortunately, even though the issues with contact shadows have now been resolved, this creates a new problem (which is what the bias term was initially meant to solve): As the leaf-geometry now has been rendered at an altered position, which is closer to the light source, even the lit side of our leaf-geometry now firmly lies in it's own shadow.</p>
     <img class="small" src="assets/img/vegeshadow1.jpg" />
     <br/>
-    <h2>Moving forward: Light-Space Offsetting</h2>
+    <h2>Stepping out of it own shadow: Render-View Light-Space Offsetting</h2>
     <img class="small" src="assets/img/vegeshadow2.jpg" />
   </entry>
 

@@ -126,13 +126,6 @@
   </entry>
 
   <entry class="green">
-    <img class="header" src="assets/img/sshad0.jpg" />
-    <h2>Rendering Vegetation Wind</h2>
-    <li>multi-stage wind structure</li>
-    <li>limitations...</li>
-  </entry>
-
-  <entry class="green">
     <img class="header" src="assets/img/vegeshadow0.jpg" />
     <h2>Leaf Shadows</h2>
     <p>The way light-shadows are implemented in traditional rendering pipelines is by additionally drawing the scene from the light's perspective into a depth buffer and then shading the screen-space view by reprojecting the world-space coordinates of the current fragment into the view of the light and comparing the depth inside the light's depth buffer to the depth of the current fragment. As this would result in terrible flickering on the shadow-casting surfaces (due to floating point inaccuracies) a bias is usually applied to the depth values retrieved from the light buffer, in order to slightly shift the shadeed depth behind the shadow casting surface - hence keeping it in the light.</p>
@@ -153,17 +146,19 @@
 
   <entry class="green">
     <img class="header" src="assets/img/sshad0.jpg" />
-    <h2>Vegetation LODs & Smooth LOD blending</h2>
-    <li>LOD Architecture</li>
-    <li>LOD Selection</li>
-    <li>Geom Shader Vert Rejection</li>
+    <h2>Smooth LOD Blending</h2>
+    <p>For modern traditionally-rendered open-world games LOD (level of detail) switching is an essential mechanic by which objects which take up less space on screen are represented by lower-poly versions than if the same model were to be rendered up-close. For many objects the LOD transition (switching out one LOD for another, as the camera moves throughout the world and objects become larger or smaller on screen) can be done somewhat seamlessly, without any fancy techniques (as long as the low poly mesh accurately represents the higher-fidelity version from further away) - or even if not, the resulting "pop-in" effect usually occurs scattered across the screen wherever a mesh happens to pass the megic boundary into a different LOD, however, for dense vegetation (e.g. grass, flowers) - as this transition will continually occur at a consistent distance / position on screen, simply switching out LODs will quickly result in a very apparent transition-point, or a very high number of LOD transitions is needed to prevent this.</p>
+    <p>In order to tackle this, we can instead simply <b>fade</b> smoothly between different LODs. With a deferred rendering setup, this means that we need to <i>dither</i> between LODs, smoothly shifting the resulting likelyhood of pixel-rejection across the LOD boundary.</p>
+    <p>The implication of wanting to be able to fade between LODs is that both levels of detail of a mesh need to be loaded & (at least partially) rendered (wherever fades occur), so, simple LOD switching aims towards linear effort render a model at any given distance (with the complexity of the mesh increasing the more space it takes up), but with <i>fading</i> LODs, the effort to render a model would naively be highest when transitioning between displayed levels of detail.</p>
+    <p>There is, however, some trickery we can perform, in order to at least reduce the complexity of rendering models in transition...</p>
+    <h3>Distance-Aware Geometry Shader Vertex-Rejection</h3>
   </entry>
 
   <entry class="green">
     <img class="header" src="assets/img/sshad0.jpg" />
-    <h2>Deferred Shaded Vegetation Rendering</h2>
-    <li>texture channel packing</li>
-    <li>output channel packing</li>
+    <h2>Vegetation LODs</h2>
+    <li>LOD Architecture</li>
+    <li>LOD Selection</li>
   </entry>
 
   <entry class="blue">

@@ -152,7 +152,8 @@
     <p>The implication of wanting to be able to fade between LODs is that both levels of detail of a mesh need to be loaded & (at least partially) rendered (wherever fades occur), so, simple LOD switching aims towards linear effort render a model at any given distance (with the complexity of the mesh increasing the more space it takes up), but with <i>fading</i> LODs, the effort to render a model would naively be highest when transitioning between displayed levels of detail.</p>
     <p>There is, however, some trickery we can perform, in order to at least reduce the complexity of rendering models in transition...</p>
     <h3>Distance-Aware Geometry Shader Triangle-Rejection</h3>
-    <img class="small" src="assets/img/lod_blend0.jpg">
+    <p>Our Vegtation-LOD architecture provides each object with a minimum and maximum renderable distance, expressed as a LOD-transition point index - hence, they always occur at pre-calculated distances which can be retrieved from a lookup-table (of squared distances to speed up the comparison, but that's besides the point). Our vertex-shader can now select the corresponding distances and LOD-transition indices to provide the geometry shader with.</p>
+    <img src="assets/img/lod_blend0.jpg">
   </entry>
 
   <entry class="green">

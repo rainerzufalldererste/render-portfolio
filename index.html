@@ -15,7 +15,7 @@
     <img class="header" src="assets/img/frag_move1.png" />
     <h2>Vertex vs. Fragment Shader Movement Vectors</h2>
     <p>Most modern deferred-shaded rendering engines use temporal Anti-Aliasing to accumulate subpixel detail over multiple frames by reprojecting information from the previous frame into the current one. To reproject the positions from the previous frame, we need information for each moved pixel (be it via camera movement, by object movement or a combination of the two) of where it resided in the previous frame (if it did).</p>
-    <p>As the motion vectors usually gradually shift over flat surfaces - especially singular triangles - motion vectors are usually calculated in the vertex or geometry shader, to spare the fragment shader from costly per-pixel calculations of information identical to what would've been achieved via perspective-corrected barycentric interpolation. This works really well for most cases, however, there's one notable exception:</p>
+    <p>As the motion vectors usually gradually shift over flat surfaces - especially singular triangles - motion vectors are usually calculated in the vertex or geometry shader, to spare the fragment shader from costly per-pixel calculations of information identical to what would've been achieved via non-perspective-corrected barycentric interpolation. This works really well for most cases, however, there's one notable exception:</p>
     <p>For exceptionally large triangles, either current or past frame vertices may land significantly off screen - potentially even infront of the clipping plane. This makes the resulting interpolated values utterly incorrect as they massively overestimate the motion vectors of corresponding pixels.</p>
     <li>The usual setup: Vertex Shader</li>
     <li>The issue</li>
@@ -177,6 +177,16 @@
     <h2>Vegetation LODs</h2>
     <li>LOD Architecture</li>
     <li>LOD Selection</li>
+  </entry>
+
+  <entry class="green">
+    <img class="header" src="assets/img/sshad0.jpg" />
+    <h2>Shared Texture-Streaming Architecture</h2>
+    <li>The parts of texture updates: Gather, Upload, Update to Bindless Texture, Set Idx to specific Obj Pool</li>
+    <li>Render Object / Vege Obj texture request on non-loaded texture</li>
+    <li>Render Object / Vege Obj texture request on already requested texture (for other obj)</li>
+    <li>Render Object / Vege Obj texture request on already uploading texture (for other obj)</li>
+    <li>Render Object / Vege Obj texture request on already completed texture (for other obj)</li>
   </entry>
 
   <entry class="blue">

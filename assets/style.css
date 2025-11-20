@@ -335,6 +335,10 @@ th {
   background-color: #0002;
 }
 
+code comment {
+  opacity: 50%;
+}
+
 /* iphone X , XS, 11 Pro */
 @media only screen and (min-device-width: 350px) and (max-device-height: 950px) and ((-webkit-min-device-pixel-ratio: 2)) {
   body {

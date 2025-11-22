@@ -210,8 +210,8 @@
     <li>LOD Selection</li>
   </entry>
 
-  <entry class="green">
-    <img class="header" src="assets/img/sshad0.jpg" />
+  <entry class="blue">
+    <img class="header" src="assets/img/world_space_hashing.jpg" />
     <h2>Shared Texture-Streaming Architecture</h2>
     <p>Adding vegetation objects as a separate entity type to render objects into the engine - as they require different types of attributes to be associated with the models - leaves us with a challenge:</p><p>Our existing texture-streaming architecture is currently targeted towards gathering only <i>render object</i> textures (and updating the corresponding gpu resources pointing to them), but it wouldn't make sense to entirely duplicate this functionality for vegetation objects - and unifying the behavior across different types also scales much better with adding even more different types of rendered objects in the future (it also allows for using a single texture across different <i>types</i> of objects).</p>
     <h3>Resource Loading Experience</h3>

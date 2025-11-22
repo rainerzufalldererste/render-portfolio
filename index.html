@@ -213,6 +213,27 @@
   <entry class="green">
     <img class="header" src="assets/img/sshad0.jpg" />
     <h2>Shared Texture-Streaming Architecture</h2>
+    <p>Adding vegetation objects as a separate entity type to render objects into the engine - as they require different types of attributes to be associated with the models - leaves us with a challenge:</p><p>Our existing texture-streaming architecture is currently targeted towards gathering only <i>render object</i> textures (and updating the corresponding gpu resources pointing to them), but it wouldn't make sense to entirely duplicate this functionality for vegetation objects - and unifying the behavior across different types also scales much better with adding even more different types of rendered objects in the future (it also allows for using a single texture across different <i>types</i> of objects).</p>
+    <h3>Resource Loading Experience</h3>
+    <p>To illustrate the process, let's have a look at the different stages which need to be completed before a texture can be rendered to a certain type of rendered object:</p>
+    <ul>
+      <li>A Chunk with differnt types of render objects is added to the renderer</li>
+      <li>Basic information about the associated meshes is retrieved (Extents, Mesh File ID, Texture File ID, etc.)</li>
+      <li>The data-chunk with generic information is uploaded to the GPU</li>
+      <li>When the upload is completed, the chunk can be forwarded to the culling compute shader</li>
+      <li>If a certain mesh is considered visible, it's associated object will receive a non-zero render-reference count (for the relevant LOD)</li>
+      <li>On the next frame the CPU-side iterates over all rendered objects, finds ones that are unloaded, but have references and enqueues it into the "Please Load" queue. The object is now marked as "requested"</li>
+      <li>If load-capacity is available the request for the corresponding model &amp; texture is enqueued to the asset-query system</li>
+      <li>The model or texture is asynchronously loaded from disk, decompressed &amp; converted to a usable format</li>
+      <li>The asset-query handle is checked for completion, if completed, the resources are collected by the renderer-streamer</li>
+      <li>The required resources are allocated for storing the asset on the GPU</li>
+      <li>Resources are enqueued for uploading to the allocated resource, and the corresponding upload-handle is associated with the rendered object / texture data</li>
+      <li>When iterating the objects at the beginning of the frame for unloaded visible objects & the "requested" flag is set, we check if there's an associated upload handle and check for upload completion</li>
+      <li>If the resource is a texture and the upload is completed, we register the new texture (with the associated texture sampler) in our bindless texture array</li>
+      <li>We then update the object's reference to no longer point to unloaded texture / mesh data, but the newly loaded resource.</li>
+      <li>Now, when the cull compute-shader finds instances to still be visible (whose objects now point to now loaded resources), it creates draw calls for each of the matching instances.</li>
+      <li>Finally, the meshes are drawn to the screen with the freshly loaded mesh &amp; texture data.</li>
+    </ul>
     <li>The parts of texture updates: Enqueue Request, Retrieve, Upload, Enqueue Update, Update to Bindless Texture, Set Idx to specific Obj Pool</li>
     <li>Render Object / Vege Obj texture request on non-loaded texture</li>
     <li>Render Object / Vege Obj texture request on already requested texture (for other obj)</li>

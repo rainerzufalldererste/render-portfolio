@@ -234,6 +234,23 @@
       <li>Now, when the cull compute-shader finds instances to still be visible (whose objects now point to now loaded resources), it creates draw calls for each of the matching instances.</li>
       <li>Finally, the meshes are drawn to the screen with the freshly loaded mesh &amp; texture data.</li>
     </ul>
+    <h3>Request States</h3>
+    <p>For textures specifically, this means that - from the perspective of the renderer-streamer - we can split the asset loading process into two phases with various sub-states each:</p>
+    <h4>CPU Load Request</h4>
+    <ul>
+      <li>Awaiting an Asset Query Slot</li>
+      <li>Awaiting Asset Data from a running Asset Query</li>
+      <li>Alternatively: Awaiting Completing of a different CPU Load Request (created by a different object, but using the same texture)</li>
+      <li>Ready (the request will continue as a <i>GPU Update Request</i>)</li>
+    </ul>
+    <h4>GPU Update Request</h4>
+    <ul>
+      <li>Allocating the Texture</li>
+      <li>Enqueueing the Texture Upload</li>
+      <li>Awaiting completion of the Texture Upload</li>
+      <li>Setting the texture to the Bindless Texture Array</li>
+      <li>Setting the Texture Array Index to the Objects (making it available to the renderer)</li>
+    </ul>
     <h3>State Handling</h3>
     <p>With this rough overview of the procedure of loading textures in mind, let's consider the following cases and how they're being handled now in a bit more detail: (Steps performed as part of the asset-query subsystem are displayed with <gray>reduced focus</gray>)</p>
     <h4>A newly loaded object requires an <u>unloaded</u> texture</h4>

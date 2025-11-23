@@ -263,15 +263,21 @@
     </ul>
     <h4>A newly loaded object requires a texture which is already <u>requested</u></h4>
     <ul>
-      <li>steps...</li>
+      <li>Store a dependent texture request with the type & index of the corresponding object</li>
+      <li>Every frame, we check if the underlying object has advanced its state from Waiting an Asset Request</li>
+      <li>If the Object has been advanced, we enqueue our GPU Update Request pointing to the upload handle</li>
+      <li>When the upload has been completed, if the texture hasn't been set to the Bindless Texture Array yet, we perform this ourselves (can happen if uploads complete whilst iterating GPU Update Requests)</li>
+      <li>Finally, we update the corresponding entity in the associated GPU object pool to point to the index in the Texture Array</li>
     </ul>
     <h4>A newly loaded object requires a texture which is already <u>uploading</u></h4>
     <ul>
-      <li>steps...</li>
+      <li>We merely need to insert a GPU Update Request for the corresponding object</li>
+      <li>When the associated upload handle has been marked completed, if the texture hasn't been set to the Bindless Texture Array yet, we perform this ourselves</li>
+      <li>Finally, we update the entity in the associated GPU object pool to point to it</li>
     </ul>
     <h4>A newly loaded object requires a texture which is already <u>available</u></h4>
     <ul>
-      <li>steps...</li>
+      <li>Here, we only need to update the object's entity in the associated GPU object pool to point to the corresponding index in the Bindless Texture Array</li>
     </ul>
   </entry>
 

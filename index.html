@@ -18,10 +18,17 @@
     <p>As it's unreasonable to expect anyone to assemble segments seamlessly via simple placing by hand (not to speak of the horrendous inconvenience) - our first component is an automated &quot;segment-analyzer&quot;:</p>
     <h3>Automated Segment Analysis & Categorization</h3>
     <p>Let's assume, that tree segments are small meshes with multiple openings in the shape of a regular polygon (but with a varying amount of vertices), just like this one:</p>
-    <img src="assets/img/tree_segment1.png"/>
+    <img src="assets/img/tree_segment1.png" style="max-width: 250pt;"/>
     <p>As should be apparent, this mesh has four openings: One regular heptagon at the bottom and three regular pentagons at the top.</p>
+    <h3>Finding Edges</h3>
+    <p>To get started, let's categorize out vertices in a way where each vert contains a reference to the tris it appears in. We've placed an arbitrary limit of six triangles on this list, as we didn't have any examples where edge-vertices (the only thing relevant for this process), were referenced in more tris than that. In order to identify a point on an opening edge, let's iterate over all triangles it occurs in and note how many times each other vertex is visited by this process. There should be two vertices, which are only visited <b>once</b> - those are the ones that lie on the same edge as the one we started with. If we're unable to find two such neighboring vertices, then move on with the next candidate.</p>
+    <p>Now, that we've found the edge, we can compute the opening direction (= plane normal), via the cross-product of the vectors to each of the neighboring vertices we selected. As there's always two normalized orthogonal vectors to a plane, let's pick a random point from the triangles we share with any of our selected vertices and compare its direction to the computed opening direction; If it lies in the same hemisphere as our opening direction (= dot product of the direction vs the direction to the shared vertex), we flip our opening direction.</p>
+    <h3>Calculating Openings</h3>
+    <p>Let's take those three points we've selected so far as a starting point and continue further from one end: Again, we iterate over all the triangles this vertex occurs in and mark all vertex occurences - but this time, we ignore all vertices that are already in our current chain (except the first vertex, which we will eventually match to determine that our opening has been completed). Just as before, we pick the one that only appears once - and therefore must lie on an edge; and having found this continuation vertex, we repeat the process until we finally match the first vertex again.</p>
+    <p>Having calculated the opening direction &amp; opening plane, we can ensure at every step, that our newly matched vertex actually fits our criteria, and discard it otherwise - potentially even discarding the entire chain in the process.</p>
+    <p>As we've now found our opening vertices, we average them to determine the center point and take the distance from the first vertex to the center as the radius.</p>
   </entry>
-
+  
   <entry class="blue">
     <img class="header" src="assets/img/frag_move0.png" />
     <h2>Vertex + Fragment Shader Hybrid Movement Vectors</h2>

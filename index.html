@@ -25,8 +25,21 @@
     <p>Now, that we've found the edge, we can compute the opening direction (= plane normal), via the cross-product of the vectors to each of the neighboring vertices we selected. As there's always two normalized orthogonal vectors to a plane, let's pick a random point from the triangles we share with any of our selected vertices and compare its direction to the computed opening direction; If it lies in the same hemisphere as our opening direction (= dot product of the direction vs the direction to the shared vertex), we flip our opening direction.</p>
     <h3>Calculating Openings</h3>
     <p>Let's take those three points we've selected so far as a starting point and continue further from one end: Again, we iterate over all the triangles this vertex occurs in and mark all vertex occurences - but this time, we ignore all vertices that are already in our current chain (except the first vertex, which we will eventually match to determine that our opening has been completed). Just as before, we pick the one that only appears once - and therefore must lie on an edge; and having found this continuation vertex, we repeat the process until we finally match the first vertex again.</p>
-    <p>Having calculated the opening direction &amp; opening plane, we can ensure at every step, that our newly matched vertex actually fits our criteria, and discard it otherwise - potentially even discarding the entire chain in the process.</p>
+    <p>Having calculated the opening direction &amp; corresponding opening plane, we can ensure at every step, that our newly matched vertex actually fits our criteria, and discard it otherwise - potentially even discarding the entire chain in the process.</p>
     <p>As we've now found our opening vertices, we average them to determine the center point and take the distance from the first vertex to the center as the radius.</p>
+    <h3>Determining the Rotation Offset</h3>
+    <p>Given a certain center point, radius and plane and number of vertices, there's still infinitely many regular polygons fit this description - we need another factor, a rotation offset from some arbitrary origin, to narrow it down to exactly one unique match, but how can we determine this rotation offset?</p>
+    <p>There is technically a nice closed-form expression for this conundrum, but unfortunately the inaccuracies appear to explode so quickly, that it isn't of particularly great use to us. What now? - Iteratively narrowing Approximation to the rescue!</p>
+    <p>Let's first define a transform which should be able to produce our reference point in the plane: (<mono>up := [0, 0, -1]</mono>)</p>
+    <code>
+  const vec3f normal_direction = -up;
+  <br/>const float_t z_rotation = (abs(normal_direction.x) + abs(normal_direction.y) &lt; epsilon) ?<br/>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;0 : atan2(ndir.x, ndir.y);
+  <br/>const float_t x_rotation = atan2(normal_direction.xy().Length(), ndir.z);
+  <br/>
+  <br/>const quaternion rot = quaternion::FromRotationNormal(vec3f(0, 0, -1), -z_rotation + offset_rotation) * <br/>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;quaternion::FromRotationNormal(vec3f(1, 0, 0), -x_rotation) * <br/>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;quaternion::FromRotationNormal(vec3f(0, 0, -1), z_rotation);
+  <br/>
+  <br/>const vec3f point = center + matrix::RotationQuaternion(rot).TransformVector3(vec3f(radius, 0, 0));
+    </code>
   </entry>
   
   <entry class="blue">

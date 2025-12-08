@@ -20,26 +20,36 @@
     <p>Let's assume, that tree segments are small meshes with multiple openings in the shape of a regular polygon (but with a varying amount of vertices), just like this one:</p>
     <img src="assets/img/tree_segment1.png" style="max-width: 250pt;"/>
     <p>As should be apparent, this mesh has four openings: One regular heptagon at the bottom and three regular pentagons at the top.</p>
-    <h3>Finding Edges</h3>
+    <h4>Finding Edges</h4>
     <p>To get started, let's categorize out vertices in a way where each vert contains a reference to the tris it appears in. We've placed an arbitrary limit of six triangles on this list, as we didn't have any examples where edge-vertices (the only thing relevant for this process), were referenced in more tris than that. In order to identify a point on an opening edge, let's iterate over all triangles it occurs in and note how many times each other vertex is visited by this process. There should be two vertices, which are only visited <b>once</b> - those are the ones that lie on the same edge as the one we started with. If we're unable to find two such neighboring vertices, then move on with the next candidate.</p>
     <p>Now, that we've found the edge, we can compute the opening direction (= plane normal), via the cross-product of the vectors to each of the neighboring vertices we selected. As there's always two normalized orthogonal vectors to a plane, let's pick a random point from the triangles we share with any of our selected vertices and compare its direction to the computed opening direction; If it lies in the same hemisphere as our opening direction (= dot product of the direction vs the direction to the shared vertex), we flip our opening direction.</p>
-    <h3>Calculating Openings</h3>
+    <h4>Calculating Openings</h4>
     <p>Let's take those three points we've selected so far as a starting point and continue further from one end: Again, we iterate over all the triangles this vertex occurs in and mark all vertex occurences - but this time, we ignore all vertices that are already in our current chain (except the first vertex, which we will eventually match to determine that our opening has been completed). Just as before, we pick the one that only appears once - and therefore must lie on an edge; and having found this continuation vertex, we repeat the process until we finally match the first vertex again.</p>
     <p>Having calculated the opening direction &amp; corresponding opening plane, we can ensure at every step, that our newly matched vertex actually fits our criteria, and discard it otherwise - potentially even discarding the entire chain in the process.</p>
     <p>As we've now found our opening vertices, we average them to determine the center point and take the distance from the first vertex to the center as the radius.</p>
-    <h3>Determining the Rotation Offset</h3>
+    <h4>Determining the Rotation Offset</h4>
     <p>Given a certain center point, radius and plane and number of vertices, there's still infinitely many regular polygons fit this description - we need another factor, a rotation offset from some arbitrary origin, to narrow it down to exactly one unique match, but how can we determine this rotation offset?</p>
     <p>There is technically a nice closed-form expression for this conundrum, but unfortunately the inaccuracies appear to explode so quickly, that it isn't of particularly great use to us. What now? - Iteratively narrowing Approximation to the rescue!</p>
     <p>Let's first define a transform which should be able to produce our reference point in the plane: (<mono>up := [0, 0, -1]</mono>)</p>
     <code>
   const vec3f normal_direction = -up;
-  <br/>const float_t z_rotation = (abs(normal_direction.x) + abs(normal_direction.y) &lt; epsilon) ?<br/>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;0 : atan2(ndir.x, ndir.y);
+  <br/>const float_t z_rotation = (abs(normal_direction.x) + abs(normal_direction.y) &lt; epsilon) ?<br/>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;0 : atan2(normal_direction.x, normal_direction.y);
   <br/>const float_t x_rotation = atan2(normal_direction.xy().Length(), ndir.z);
   <br/>
-  <br/>const quaternion rot = quaternion::FromRotationNormal(vec3f(0, 0, -1), -z_rotation + offset_rotation) * <br/>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;quaternion::FromRotationNormal(vec3f(1, 0, 0), -x_rotation) * <br/>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;quaternion::FromRotationNormal(vec3f(0, 0, -1), z_rotation);
+  <br/>const quaternion rot = quaternion::FromRotationNormal(vec3f(0, 0, -1), -z_rotation + rotation_offset) * <br/>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;quaternion::FromRotationNormal(vec3f(1, 0, 0), -x_rotation) * <br/>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;quaternion::FromRotationNormal(vec3f(0, 0, -1), z_rotation);
   <br/>
   <br/>const vec3f point = center + matrix::RotationQuaternion(rot).TransformVector3(vec3f(radius, 0, 0));
     </code>
+    <p>Now, with the free parameter <mono>rotation_offset</mono>, we can gather the diff from our observed location vs the values <mono>[0 ~ ]&tau;</mono> to find the appropriate value. Rather than blindly trying to iterate over the given value range, we can sample the difference function at a bunch of fixed positions in this range - let's say every <mono>&frac12;&pi;</mono> - and then grab the two values surrounding the value surrounding the lowest difference (<mono>n_min - &frac12;&pi;</mono>, <mono>n_min + &frac12;&pi;</mono>, to account for the spherical implications of those factors) and use <a href="https://en.wikipedia.org/wiki/Brent%27s_method">Brent's Method</a> to find the minimum in the provided range. As there are <mono>vertex_count</mono> symemtrical variants of each of those matches, we can even reduce the offset further via the following:</p>
+    <code>
+      symmetry_angle = &tau; / vertex_count;
+      <br/>rotation_offset = fmodf(rotation_offset, symmetry_angle);
+      <br/>
+      <br/>if (rotation_offset > symmetry_angle / 2)
+      <br/>&emsp;&emsp;rotation_offset -= symmetry_angle;
+    </code>
+    <br/>
+    <h3>Assembling Meshes</h3>
   </entry>
   
   <entry class="blue">

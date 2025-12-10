@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="utf-8">
-  <title>Portfolio</title>
+  <title>Graphics & 3D Technology Blog</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="assets/style.css">
 </head>
@@ -50,6 +50,8 @@
     </code>
     <br/>
     <h3>Assembling Meshes</h3>
+    <p>Starting with the pre-analyzed segments, we can easily categorize them by the significant opening's number of vertices (we'll pick the largest one - or the one that's closes to <mono>[0, 0, 0]</mono> as the &quot;significant&quot; or &quot;base&quot;-opening). Now, we start with a randomly picked segment of a chosen category & orient it to point in the desired direction (with the desired scale) as a starting point.</p>
+    <p>To continue, let's first zoom out a bit: Each of the segments is defined in its own segment-space (the direction the significant opening points in, the scale the opening and its rotation offset). Additionally, there's a local position, rotation & scale at each of the openings of any placed segment in world-space. These two factors have to be considered separately when generating seamless segments - sure, for simple examples, one or the other may not have an impact, but for more complex segments & &quot;positions&quot; this can easily introduce major placement or rotation issues.</p>
   </entry>
   
   <entry class="blue">

@@ -30,13 +30,13 @@
     <h4>Determining the Rotation Offset</h4>
     <p>Given a certain center point, radius and plane and number of vertices, there's still infinitely many regular polygons fit this description - we need another factor, a rotation offset from some arbitrary origin, to narrow it down to exactly one unique match, but how can we determine this rotation offset?</p>
     <p>There is technically a nice closed-form expression for this conundrum, but unfortunately the inaccuracies appear to explode so quickly, that it isn't of particularly great use to us. What now? - Iteratively narrowing Approximation to the rescue!</p>
-    <p>Let's first define a transform which should be able to produce our reference point in the plane: (<mono>up := [0, 0, -1]</mono>)</p>
+    <p>Let's first define a transform which should be able to produce our reference point in the plane: (assuming a left-handed coordinate system, with z pointing down)</p>
     <code>
       quaternion segment_quaternion(const vec3f up, const float rotation_offset)
       <br/>{
       <br/>&emsp;&emsp;const vec3f normal_direction = -up;
-      <br/>&emsp;&emsp;const float_t z_rotation = (abs(normal_direction.x) + abs(normal_direction.y) &lt; epsilon) ?<br/>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;0 : atan2(normal_direction.x, normal_direction.y);
-      <br/>&emsp;&emsp;const float_t x_rotation = atan2(normal_direction.xy().Length(), ndir.z);
+      <br/>&emsp;&emsp;const float z_rotation = (abs(normal_direction.x) + abs(normal_direction.y) &lt; epsilon) ?<br/>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;0 : atan2(normal_direction.x, normal_direction.y);
+      <br/>&emsp;&emsp;const float x_rotation = atan2(normal_direction.xy().Length(), ndir.z);
       <br/>
       <br/>&emsp;&emsp;return rotation_normal(vec3f(0, 0, -1), -z_rotation + rotation_offset) * <br/>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;rotation_normal(vec3f(1, 0, &emsp;0), -x_rotation) * <br/>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;rotation_normal(vec3f(0, 0, -1), &emsp;z_rotation);
       <br/>}
@@ -58,7 +58,13 @@
     <p>To continue, let's first zoom out a bit: Each of the segments is defined in its own segment-space (the direction the significant opening points in, the scale the opening and its rotation offset). Additionally, there's a local position, rotation & scale at each of the openings of any placed segment in world-space. These two factors have to be considered separately when generating seamless segments. Let's consider those two factors separately, in order to grow our combined mesh in world-space, but correct for the local transforms of each segment, when handling it.</p>
     <p>Now, at any given segment, we wanna proceed as follows:</p>
     <ul>
-      <li>First, we calculate the per-segment correction transform via<br><mono>(rotation_x(&pi;) * segment_quaternion(segment.base.up, segment.base.rotation_offset)).Inverse()</mono><br>(see the implementation of <mono>segment_quaternion</mono> above)</li>
+      <li>First, we consider only the category specified by the previous opening (or in the case of the first segment, which has been provided to us via a starting parameter) and select one of the matching openings.</li>
+      <li>
+        <p>Now, we calculate the per-segment correction transform via
+        <br><mono>(rotation_x(&pi;) * segment_quaternion(segment.base.up, segment.base.rotation_offset)).Inverse()</mono>
+        <br>(see the implementation of <mono>segment_quaternion</mono> above)</p>
+        <p>Note: Whether we choose to rotate along the x- or y- axis is pretty arbitrary, all we want to achieve is a "flip" along the up/dpwn direction (to have the opening's <i>up</i> direction to pointing <i>down</i> instead, directly <i>into</i> the previous opening's <i>up</i> vector). This could easily be achieved via applying a scale of <mono>-1</mono> on th z axis, but as our render instance format doesn't support non-uniform scaling, we've chosen to rotate instead.</p>
+      </li>
       <li>Then we place the mesh at the uninhabited opening (or the start position, in case of the first segment) - using our correction transform to align it with the corresponding opening.
         <code>
           next_mesh.scale = previous_opening.radius / next_segment.base.radius;
@@ -71,7 +77,24 @@
           <br>next_mesh.rotation = correction_quat * previous_opening.rotation;
         </code>
       </li>
-      <li>Now, we iterate over all the openings of this new segment and note the &quot;end-point positions&quot; in world space - alongside their radius &amp; orientation. We may here pick from one of the <mono>vertex_count</mono> possible rotations which produce a seamless transition (via a rotation on the up/down axis of <mono>n * &tau; / vertex_count</mono>).</li>
+      <li>Now, we iterate over all the openings of this new segment and note the &quot;end-point positions&quot; in world space - alongside their radius &amp; orientation. We may here pick from one of the <mono>vertex_count</mono> possible rotations which produce a seamless transition (via a rotation on the up/down axis of <mono>n * &tau; / vertex_count &and; n &Element; &naturals;, n &lt; vertex_count</mono>).
+        <code>
+          const size_t rotation_idx = [0 .. ]opening.vertex_count;
+          <br/>const float variant_rot = (&tau; / opening.vertex_count) * rotation_idx;
+          <br/>
+          <br/>const quaternion corrected_rotation = correction_quat * world_space_rotation;
+          <br/>const matrix rotation_mat = matrix_from_quaternion(corrected_rotation);
+          <br/>const quaternion seg_quat = segment_quaternion(opening.up, variant_rot + opening.rotation_offset);
+          <br/>
+          <br/>const vec3f uncorrected_offset = (opening.center - base.center) * current_mesh.scale;
+          <br/>const vec3f end_point_offset = rotation_mat.transform(uncorrected_offset);
+          <br/>
+          <br/>endPoint.radius = opening.radius * current_mesh.scale;
+          <br/>endPoint.position = previous_opening.position + end_point_offset;
+          <br/>endPoint.up = rotation_mat.transform(opening.up);
+          <br/>endPoint.rotation = seg_quat * correction_quat * world_space_rotation;
+        </code>
+      </li>
     </ul>
     <p>We repeat this process until no open &quot;end-points&quot; remain. This concludes our mesh assembly procedure.</p>
   </entry>

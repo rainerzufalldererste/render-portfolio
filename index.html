@@ -3,13 +3,374 @@
 
 <head>
   <meta charset="utf-8">
-  <title>Portfolio</title>
+  <title>Graphics &amp; 3D Technology Blog</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="assets/style.css">
 </head>
 
 <body>
   <div class="title"></div>
+
+  <entry class="blue">
+    <img class="header" src="assets/img/tree_segment0.jpg" />
+    <h2>Assembling Seamless Meshes</h2>
+    <p>In order to provide a huge variety of trees without requiring each and every tree to be a separate mesh (requiring a huge amount of resources), our preferred approach is - rather than having pre-prepared meshes of full trees - assemble them out of reusable segments which can be combined in a vast number of different ways achieving a huge space of possibilities even within comparatively restrictive memory requirements.</p>
+    <p>As it's unreasonable to expect anyone to assemble segments seamlessly via simple placing by hand (not to speak of the horrendous inconvenience) - our first component is an automated &quot;segment-analyzer&quot;:</p>
+    <h3>Automated Segment Analysis &amp; Categorization</h3>
+    <p>Let's assume, that tree segments are small meshes with multiple openings in the shape of a regular polygon (but with a varying amount of vertices), just like this one:</p>
+    <img src="assets/img/tree_segment1.png" style="max-width: 250pt;"/>
+    <p>As should be apparent, this mesh has four openings: One regular heptagon at the bottom and three regular pentagons at the top.</p>
+    <h4>Finding Edges</h4>
+    <p>To get started, let's categorize out vertices in a way where each vert contains a reference to the tris it appears in. We've placed an arbitrary limit of six triangles on this list, as we didn't have any examples where edge-vertices (the only thing relevant for this process), were referenced in more tris than that. In order to identify a point on an opening edge, let's iterate over all triangles it occurs in and note how many times each other vertex is visited by this process. There should be two vertices, which are only visited <b>once</b> - those are the ones that lie on the same edge as the one we started with. If we're unable to find two such neighboring vertices, then move on with the next candidate.</p>
+    <p>Now, that we've found the edge, we can compute the opening direction (= plane normal), via the cross-product of the vectors to each of the neighboring vertices we selected. As there's always two normalized orthogonal vectors to a plane, let's pick a random point from the triangles we share with any of our selected vertices and compare its direction to the computed opening direction; If it lies in the same hemisphere as our opening direction (= dot product of the direction vs the direction to the shared vertex), we flip our opening direction.</p>
+    <h4>Calculating Openings</h4>
+    <p>Let's take those three points we've selected so far as a starting point and continue further from one end: Again, we iterate over all the triangles this vertex occurs in and mark all vertex occurences - but this time, we ignore all vertices that are already in our current chain (except the first vertex, which we will eventually match to determine that our opening has been completed). Just as before, we pick the one that only appears once - and therefore must lie on an edge; and having found this continuation vertex, we repeat the process until we finally match the first vertex again.</p>
+    <p>Having calculated the opening direction &amp; corresponding opening plane, we can ensure at every step, that our newly matched vertex actually fits our criteria, and discard it otherwise - potentially even discarding the entire chain in the process.</p>
+    <p>As we've now found our opening vertices, we average them to determine the center point and take the distance from the first vertex to the center as the radius.</p>
+    <h4>Determining the Rotation Offset</h4>
+    <p>Given a certain center point, radius and plane and number of vertices, there's still infinitely many regular polygons fit this description - we need another factor, a rotation offset from some arbitrary origin, to narrow it down to exactly one unique match, but how can we determine this rotation offset?</p>
+    <p>There is technically a nice closed-form expression for this conundrum, but unfortunately the inaccuracies appear to explode so quickly, that it isn't of particularly great use to us. What now? - Iteratively narrowing Approximation to the rescue!</p>
+    <p>Let's first define a transform which should be able to produce our reference point in the plane: (assuming a left-handed coordinate system, with z pointing down)</p>
+    <code>
+      quaternion segment_quaternion(const vec3f up, const float rotation_offset)
+      <br/>{
+      <br/>&emsp;&emsp;const vec3f normal_direction = -up;
+      <br/>&emsp;&emsp;const float z_rotation = (abs(normal_direction.x) + abs(normal_direction.y) &lt; epsilon) ?<br/>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;0 : atan2(normal_direction.x, normal_direction.y);
+      <br/>&emsp;&emsp;const float x_rotation = atan2(normal_direction.xy().Length(), ndir.z);
+      <br/>
+      <br/>&emsp;&emsp;return rotation_normal(vec3f(0, 0, -1), -z_rotation + rotation_offset) * <br/>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;rotation_normal(vec3f(1, 0, &emsp;0), -x_rotation) * <br/>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;rotation_normal(vec3f(0, 0, -1), &emsp;z_rotation);
+      <br/>}
+      <br/>
+      <br/>const quaternion rot = segment_quaternion(up, rotation_offset);
+      <br/>const vec3f point = center + matrix_from_quaternion(rot).transform(vec3f(radius, 0, 0));
+    </code>
+    <p>Now, with the free parameter <mono>rotation_offset</mono>, we can gather the diff from our observed location vs the values <mono>[0 ~ ]&tau;</mono> to find the appropriate value. Rather than blindly trying to iterate over the given value range, we can sample the difference function at a bunch of fixed positions in this range - let's say every <mono>&frac12;&pi;</mono> - and then grab the two values surrounding the value with the lowest error (<mono>n_min - &frac12;&pi;</mono>, <mono>n_min + &frac12;&pi;</mono>, to account for the spherical implications of those factors) and use <a href="https://en.wikipedia.org/wiki/Brent%27s_method">Brent's Method</a> to find the minimum in the provided range. As there are <mono>vertex_count</mono> symemtrical variants of each of those matches, we can even reduce the offset further via the following:</p>
+    <code>
+      symmetry_angle = &tau; / vertex_count;
+      <br/>rotation_offset = fmodf(rotation_offset, symmetry_angle);
+      <br/>
+      <br/>if (rotation_offset > symmetry_angle / 2)
+      <br/>&emsp;&emsp;rotation_offset -= symmetry_angle;
+    </code>
+    <br/>
+    <h3>Assembling Meshes</h3>
+    <p>Starting with the pre-analyzed segments, we can easily categorize them by the significant opening's number of vertices (we'll pick the largest one - or the one that's closes to <mono>[0, 0, 0]</mono> as the &quot;significant&quot; or &quot;base&quot;-opening). Now, we start with a randomly picked segment of a chosen category.</p>
+    <p>To continue, let's first zoom out a bit: Each of the segments is defined in its own segment-space (the direction the significant opening points to, the scale of the opening and its rotation offset). Additionally, there's a local position, rotation &amp; scale at each of the openings of any placed segment in world-space. These two factors have to be considered separately when generating seamless segments. Let's consider those two factors separately, in order to grow our combined mesh in world-space, but correct for the local transforms of each segment, when handling it.</p>
+    <p>Now, at any given segment, we wanna proceed as follows:</p>
+    <ul>
+      <li>First, we consider only the category specified by the previous opening (or in the case of the first segment, which has been provided to us via a starting parameter) and select one of the matching openings.</li>
+      <li>
+        <p>Now, we calculate the per-segment correction transform via
+        <br><mono>(rotation_x(&pi;) * segment_quaternion(segment.base.up, segment.base.rotation_offset)).Inverse()</mono>
+        <br>(see the implementation of <mono>segment_quaternion</mono> above)</p>
+        <p>Note: Whether we choose to rotate along the x- or y-axis is pretty arbitrary, all we want to achieve is a "flip" along the up/down direction (to have the opening's <i>up</i> direction to pointing <i>down</i> instead, directly <i>into</i> the previous opening's <i>up</i> vector). This could easily be achieved via applying a scale of <mono>-1</mono> on th z axis, but as our render instance format doesn't support non-uniform scaling, we've chosen to rotate instead.</p>
+      </li>
+      <li>Then we place the mesh at the uninhabited opening (or the start position, in case of the first segment) - using our correction transform to align it with the corresponding opening.
+        <code>
+          next_mesh.scale = previous_opening.radius / next_segment.base.radius;
+          <br>
+          <br>const vec3f offset = next_segment.base.center_position * next_mesh.scale;
+          <br>const matrix rotationMat = matrix_from_quaternion(correction_quat * previous_opening.rotation);
+          <br>const vec3f rotatedOffset = rotationMat.transform(offset);
+          <br>
+          <br>next_mesh.position = previous_opening.position - rotatedOffset;
+          <br>next_mesh.rotation = correction_quat * previous_opening.rotation;
+        </code>
+      </li>
+      <li>Now, we iterate over all the openings of this new segment and note the &quot;end-point positions&quot; in world space - alongside their radius &amp; orientation. We may here pick from one of the <mono>vertex_count</mono> possible rotations which produce a seamless transition (via a rotation on the up/down axis of <mono>n * &tau; / vertex_count &and; n &Element; &naturals;, n &lt; vertex_count</mono>).
+        <code>
+          const size_t rotation_idx = [0 .. ]opening.vertex_count;
+          <br/>const float variant_rot = (&tau; / opening.vertex_count) * rotation_idx;
+          <br/>
+          <br/>const quaternion corrected_rotation = correction_quat * world_space_rotation;
+          <br/>const matrix rotation_mat = matrix_from_quaternion(corrected_rotation);
+          <br/>const quaternion seg_quat = segment_quaternion(opening.up, variant_rot + opening.rotation_offset);
+          <br/>
+          <br/>const vec3f uncorrected_offset = (opening.center - base.center) * current_mesh.scale;
+          <br/>const vec3f end_point_offset = rotation_mat.transform(uncorrected_offset);
+          <br/>
+          <br/>endPoint.radius = opening.radius * current_mesh.scale;
+          <br/>endPoint.position = previous_opening.position + end_point_offset;
+          <br/>endPoint.up = rotation_mat.transform(opening.up);
+          <br/>endPoint.rotation = seg_quat * correction_quat * world_space_rotation;
+        </code>
+      </li>
+    </ul>
+    <p>We repeat this process until no open &quot;end-points&quot; remain. This concludes our mesh assembly procedure.</p>
+    <img src="assets/img/tree_segment2.jpg"/>
+  </entry>
+  
+  <entry class="blue">
+    <img class="header" src="assets/img/frag_move0.png" />
+    <h2>Vertex + Fragment Shader Hybrid Movement Vectors</h2>
+    <p>Most modern deferred-shaded rendering engines use temporal Anti-Aliasing to accumulate subpixel detail over multiple frames by reprojecting information from the previous frame into the current one. To reproject the positions from the previous frame, we need information for each moved pixel (be it via camera movement, by object movement or a combination of the two) of where it resided in the previous frame, a so-called &quot;velocity buffer&quot;.</p>
+    <p>As the motion vectors usually gradually shift over flat surfaces - especially singular triangles - it's in many cases very accurate to just calculate the movement direction in the vertex or geometry shader, to spare the fragment shader from costly per-pixel calculations of information identical or near-identical to what would've been achieved via non-perspective-corrected barycentric interpolation. This works really well for most cases as perspective distortion is usually negligable, however, there's one notable exception:</p>
+    <p>For exceptionally large triangles, either current or past frame vertices may land significantly off screen - potentially even beyond of the clipping plane. This makes the resulting interpolated values utterly incorrect as they massively overestimate the motion vectors of corresponding pixels.</p>
+    <h3>Vertex Shader Aspect</h3>
+    <p>Now, rather than always calculating movement vectors per pixel to address this, we can build a detection mechanism in the vertex shader, which allows us to conditionally enable per-pixel calculations if necessary:</p>
+    <code>
+      vec4 pos4 = VP * world_pos; <comment>// homogeneous current frame on-screen position</comment>
+      <br>vec4 prevPos4 = prevVP * prev_world_pos; <comment>// homogeneous previous frame on-screen position</comment>
+      <br>
+      <br>vec2 pos2 = pos4.xy / pos4.w; <comment>// current on-screen xy position</comment>
+      <br>vec2 prevPos2 = prevPos4.xy / prevPos4.w; <comment>// previous on-screen xy position</comment>
+      <br>
+      <br>vec2 velocity = (pos2 - prevPos2) * 0.5 - taaJitter;
+      <br>fVelocity = velocity; <comment>// per vertex velocity</comment>
+      <br>
+      <br>bool needsPerPixelVelocity = 
+      <br>&emsp;&emsp;pos4.z &lt; 0 || pos4.w &lt; 0 || <comment>// current frame beyond clipping plane</comment>
+      <br>&emsp;&emsp;prevPos4.z &lt; 0 || prevPos4.w &lt; 0 || <comment>// previous frame beyond clipping plane</comment>
+      <br>&emsp;&emsp;abs(pos2.x) &gt; 1 || abs(pos2.y) &gt; 1 || <comment>// current frame position off-screen</comment>
+      <br>&emsp;&emsp;abs(prevPos2.x) &gt; 1 || abs(prevPos2.y) &gt; 1; <comment>// previous frame position off-screen</comment>
+      <br>
+      <br>fUsePerPixelVelocity = needsPerPixelVelocity ? 1.0 : 0.0;
+    </code>
+    <h3>Fragment Shader Aspect</h3>
+    <p>For the fragment shader, the conditional calculation is now trivial:</p>
+    <code>
+      outVelocityBuffer = vec4(fVelocity, 0, 0);
+      <br>
+      <br>if (fUsePerPixelVelocity > 0) <comment>// any of the fragments have been disqualified</comment>
+      <br>{
+      <br>&emsp;&emsp;vec4 pos4 = VP * world_pos; <comment>// homogeneous current frame on-screen position</comment>
+      <br>&emsp;&emsp;vec4 prevPos4 = prevVP * prev_world_pos; <comment>// homogeneous previous frame on-screen position</comment>
+      <br>&emsp;&emsp;vec2 pos2 = pos4.xy / pos4.w; <comment>// current on-screen xy position</comment>
+      <br>&emsp;&emsp;vec2 prevPos2 = prevPos4.xy / prevPos4.w; <comment>// previous on-screen xy position</comment>
+      <br>&emsp;&emsp;
+      <br>&emsp;&emsp;outVelocityBuffer = vec4((pos2 - prevPos2) * 0.5 - taaJitter, 0, 0); <comment>// per vertex velocity</comment>
+      <br>}
+    </code>
+  </entry>
+
+  <entry class="green">
+    <img class="header" src="assets/img/sdf0.jpg" />
+    <h2>Signed Distance Field Vegetation Alpha Testing</h2>
+    <p>As deferred rendering usually doesn't make use of alpha blending, but rather just a hard alpha cutoff, those transparency boundaries of alpha tested objects tend to exhibit artifacts from biliniar interpolation.</p>
+    <p>A common technique to deal with a similar issue in font-rendering, is to rasterize the font as a signed-distance-field (SDF), which also enables a bunch of other neat advantages, like outlines and variable thickness at no additional rasterization-cost.</p>
+    <gray style="float: right;"><a href="https://libgdx.com/wiki/graphics/2d/fonts/distance-field-fonts">Source</a></gray>
+    <img class="small" src="assets/img/sdf2.png">
+    <br/>
+    <p>To generate this SDF, we don't rasterize the font itself, but for every pixel store the distance to the nearest outline. If we're inside the glyph, we simply keep the <i>positive</i> value of the distance, if we're outside the font, however, we give it a <i>negative</i> sign.</p>
+    <p>As the texture is much more homogeneous around the critical edges now, biliniar interpolation will do a <i>much</i> better job and we can still achieve nice (even sub-pixel) anti-aliased borders by - rather than simply discarding interpolated pixels with values &lt 0 - applying a slight gradient to the alpha testing cutoff.</p>
+    <p>To apply this technique to our vegetation textures, however, isn't as straightforward as it may seem. Calculating the exact distance to an outline is somewhat trivial for vector graphics, but for raster graphics - like our vegetation textures - a few distinct puzzle pieces are missing: The textures may for example contain completely smooth alpha gradients and even <i>if</i> there are clear lines between transparent and opaque areas, the exact border may lie somewhere in between our discrete pixels.</p>
+    <br>
+    <h2>Raster Graphics Signed Distance Field Generation</h2>
+    <p>So, let's have a look at our fast implementation of generating a SDF from a raster-graphic's alpha channel:</p>
+    <h3>Step 1: Upscaling</h3>
+    <p>As we don't want to restrict the threshold-gradients to exact pixels in the target resolution, we first upscale the alpha channel - in our case, by a factor of four. Notably, we <b>don't</b> use bilinear interpolation for this purpose - but rather a more expensive interpolation method. In our case that's, Bicubic Interpolation.</p>
+    <p>This should be sufficiently large to combat artifacts introduced by stray pixels, as they have much larger areas to smoothly spread over in the upscaled texture.</p>
+    <h3>Step 2: Applying the threshold</h3>
+    <p>Now, we iterate over every pixel of the image taking into account the surrounding 3x3 area and perform the following operation:</p>
+    <ul>
+      <li>Are all pixels in the 3x3 area &lt; the threshold?
+        <ul>
+          <li>Then mark the center pixel as <mono>-&infin;</mono></li>
+        </ul>
+      </li>
+      <li>Are all pixels in the 3x3 area &gt; the threshold?
+        <ul>
+          <li>Then mark the center pixel as <mono>+&infin;</mono></li>
+        </ul>
+      </li>
+      <li>Of all the values in our 3x3 neighborhood, are no pixels <i>closer</i> to the threshold than the center pixel?
+        <ul>
+          <li>Then mark the center pixel as <mono>0</mono></li>
+        </ul>
+      </li>
+      <li>Otherwise: Are we &lt; the threshold
+        <ul>
+          <li>Then mark the center pixel as <mono>-&infin;</mono></li>
+        </ul>
+      </li>
+      <li>Otherwise: (We are &gt; the threshold)
+        <ul>
+          <li>Then mark the center pixel as <mono>+&infin;</mono></li>
+        </ul>
+      </li>
+    </ul>
+    <p>This yields a <i>rough</i> starting point for our SDF as the resulting values are already in the correct range, so we copy the result to our upscaled-resolution SDF texture.</p>
+    <h3>Step 3: Generating the SDF</h3>
+    <p>To begin with, we generate a distance field around a singular point - this distance field isn't signed but simply contains the Euclidean distance to the center.</p>
+    <p>We will use this static distance field later as a lookup. In our case, the distance field is 33x33 pixels normalizing the distance factors to a distance of 33+1, as otherwise even the edge-pixels in all cardinal directions would end up as zero, making it effectively a 31x31 distance field.</p>
+    <img src="assets/img/sdf1.png">
+    <p>Now, we iterate over all the pixels in our texture, again taking into account the 3x3 area around any given pixels (repeating at the edges) and perform the following operation:</p>
+    <ul>
+      <li>If the center pixel is <mono>0</mono></mono>
+        <ul>
+          <li>We apply our pre-computed distance field to the SDF centered at our current pixel.</li>
+        </ul>
+      </li>
+      <li>If all values in our 3x3 range are either <mono>+&infin;</mono> or <mono>-&infin;</mono>
+        <ul>
+          <li>We leave the corresponding value in our SDF untouched.</li>
+        </ul>
+      </li>
+      <li>Otherwise:</mono>
+        <ul>
+          <li>We average all positive or zero value positions from our 3x3 neighborhood and round them to the next integer.</li>
+          <li>Then, we apply our pre-computed distance field centered on this position.</li>
+        </ul>
+      </li>
+    </ul>
+    <p>To &quot;apply&quot; our pre-computed distance field lookup to the target SDF, we consider the fact, that the smallest distance to a border will be closer to 0 than any other border-distances can be to it, as otherwise <i>they</i> would've been the closest border.</p>
+    <p>Using this logic, we can iteratively update the &quot;best&quot; SDF value with closer and ever closer values until we've visited all gradients.</p>
+    <p>To turn our pre-computed distance field lookup into an SDF, we simply adopt the sign of the value that currently resides in the SDF onto our new offered distance, yielding:</p>
+    <code>
+        void apply_distance(int8_t &amp;value, const int8_t offered_distance)
+    <br>{
+    <br>&emsp;&emsp;const int8_t dist_option = valut &lt; 0 ? -offered_distance : offered_distance;
+    <br>&emsp;&emsp;value = abs((int16_t)value) &lt; offered_distance ? value : dist_option;
+    <br>}
+    </code>
+    <p>Please note the cast to <mono>int16_t</mono>, as <mono>-(-128)</mono> is not representable in <mono>int8_t</mono>!</p>
+    <h3>Step 4: Downscaling</h3>
+    <p>Now, we can simply downscale our generated SDF by pixel averaging and bring the values into our expected output range (signed <mono>-128 ~ 127</mono> to unsigned <mono>0 - 255</mono>), yielding our approximate low-resolution output SDF.</p>
+    <p>Here's a step by step view of how a particular segment of our alpha channel transforms through the algorithm described above:</p>
+    <img src="assets/img/sdf3.png">
+    <br/>
+    <h2>Utilizing the Signed Distance Field Alpha Channel</h2>
+    <p>Surprisingly, as we've already been using a hard threshold to decide whether a given pixel shall be discarded, the changes to make use of our new SDFs are rather minimal. We've previously been using our alpha-cutoff at 0.3, but as now our cutoff point has moved to the middle of the value range representing 0 as 0.5, the sole change that is required to correctly utilize the SDFs is merely this:</p>
+    <table class="code-diff">
+      <tr class="diff">
+        <td>
+          if (alpha &lt; <b>0.33</b>)
+        </td>
+        <td>
+          if (alpha &lt; <b>0.5</b>)
+        </td>
+      </tr>
+      <tr>
+        <td>
+          &emsp;&emsp;discard;
+        </td>
+        <td>
+          &emsp;&emsp;discard;
+        </td>
+      </tr>
+    </table>
+    <p>As blending would introduce nonsensical values into our G-Buffer, there's no need to do the threshold-widening anti-aliasing approach commonly used with font-renderers for our deferred renderer, hence no further changes are needed.</p>
+    <br/>
+    <h2>Visual Improvements</h2>
+    <p>As the alpha &quot;stepping&quot; arises from bilinearly interpolated harsh alpha transitions, the differences (and issues) are much more pronounced with textures that exhibit large chances in value over only a few pixels, where with signed distance fields, the results become consistent across *all* textures.</p>
+    <p>That said, there is certainly room for improvements with generating our SDFs - but our results aren't meant to compete with advanced multi-channel SDF font rendering approaches, but rather to improve alpha outlines for vegetation rendering.</p>
+    <img src="assets/img/sdf4.png">
+  </entry>
+
+  <entry class="green">
+    <img class="header" src="assets/img/vegeshadow0.jpg" />
+    <h2>Leaf Shadows</h2>
+    <p>The way light-shadows are implemented in traditional rendering pipelines is by additionally drawing the scene from the light's perspective into a depth buffer and then shading the screen-space view by reprojecting the world-space coordinates of the current fragment into the view of the light and comparing the depth inside the light's depth buffer to the depth of the current fragment. As this would result in terrible flickering on the shadow-casting surfaces (due to floating point inaccuracies) a bias is usually applied to the depth values retrieved from the light buffer, in order to slightly shift the shaded depth behind the shadow casting surface - hence keeping it in the light.</p>
+    <p>The problem with this approach becomes apparent, when rendering very thin geometry that's connected to another surface: Due to the slight bias term in the shadowing comparison, the backfaces of the surfaces would still remain in light. This itself is an easy fix, as computing the dot product between the light direction and surface normal allows us to easily discard surfaces, which can not possibly <b>not</b> be shaded, as they're pointing away from the light surface, however, The surrounding geometry will still only enter the shadowed region slightly after the shadow-casting objects position.</p>
+    <img src="assets/img/vegeshadow3.jpg" />
+    <br/>
+    <h2>A step in the right direction: Light-View Offsetting</h2>
+    <p>The culprit of the apparent disconnect of the shaded regions is the bias term, which shifts the shaded region away from the shadow's contact point. Simply adjusting the bias terms can reduce the the size of the disconnected region, but only at the cost of lit surfaces ending up with shadow artifacts.</p>
+    <p>Targeting just the issues with the contact shadow disconnects, we can therefore make the following change to the usual shadow rendering pipeline: When drawing the thin leaf geometry to the light depth buffer, we can slightly move the vertex positions of the relevant objects in the opposite direction of the light-source, so, in effect, pre-subtract of the bias term by slightly shifting the rendered geometry towards the light-source. This cancels out the bias term, reducing the disconnected region to zero.</p>
+    <p>Unfortunately, even though the issues with contact shadows have now been resolved, this creates a new problem (which is what the bias term was initially meant to solve): As the leaf-geometry now has been rendered at an altered position, which is closer to the light source, even the lit side of our leaf-geometry now firmly lies in it's own shadow.</p>
+    <img class="small" src="assets/img/vegeshadow1.jpg" />
+    <br/>
+    <h2>Stepping out of its own shadow: Render-View Light-Space Offsetting</h2>
+    <p>By separating out our thin geometry via a stencil bit, we can easily counteract this self-shadowing by adjusting the bias-term accordingly, but this still doesn't actually fix all of the artifacts, as one problem remains to be taken care of: Now, when leaves cast shadows on other leaves the contact points exhibit the exact same problem that we had previously encountered with the shadows cast from the leaves on other objects. Yet again the difference in the view and light rendered vertex coordinates becomes a problem that can't easily be overcome by just adjusting the bias without introducing other artifacts.</p>
+    <p>We obviously can't resolve this by also moving the view rendered vertex coordinates as that would undo all of the progress we've made so far and additionally result in a model position that differs from the one specified for the scene, but we can do something very similar. As we already have access to the world-space positions of each fragment when applying shadows, we can - before projecting the fragment positions into the view-space of the light - slightly move them in the opposite of the light-direction (so, <i>towards</i> the light) by the same amount that we've done so when drawing the mesh into the depth buffer of said light. This perfectly counteracts the difference in position, as now the light &amp; view rendered light coordinates end up at the same position and we can simply use our default bias term to discriminate between lit and shaded faces, leaving contact shadows perfectly intact.</p>
+    <img class="small" src="assets/img/vegeshadow2.jpg" />
+  </entry>
+
+  <entry class="blue">
+    <img class="header" src="assets/img/lod_blend1.jpg" />
+    <h2>Smooth LOD Blending</h2>
+    <p>For modern traditionally-rendered open-world games LOD (level of detail) switching is an essential mechanic by which objects which take up less space on screen are represented by lower-poly versions than if the same model were to be rendered up-close. For many objects the LOD transition (switching out one LOD for another, as the camera moves throughout the world and objects become larger or smaller on screen) can be done somewhat seamlessly, without any fancy techniques (as long as the low poly mesh accurately represents the higher-fidelity version from further away) - or even if not, the resulting "pop-in" effect usually occurs scattered across the screen wherever a mesh happens to pass the megic boundary into a different LOD, however, for dense vegetation (e.g. grass, flowers) - as this transition will continually occur at a consistent distance / position on screen, simply switching out LODs will quickly result in a very apparent transition-point, or a very high number of LOD transitions is needed to prevent this.</p>
+    <p>In order to tackle this, we can instead simply <b>fade</b> smoothly between different LODs. With a deferred rendering setup, this means that we need to <i>dither</i> between LODs, smoothly shifting the resulting likelyhood of pixel-rejection across the LOD boundary.</p>
+    <p>The implication of wanting to be able to fade between LODs is that both levels of detail of a mesh need to be loaded &amp; (at least partially) rendered (wherever fades occur), so, simple LOD switching aims towards linear effort to render a model at any given distance (with the complexity of the mesh increasing the more space it takes up), but with <i>fading</i> LODs, the effort to render a model would naively be highest when transitioning between displayed levels of detail.</p>
+    <p>There is, however, some trickery we can perform, in order to at least reduce the complexity of rendering models in transition...</p>
+    <h3>Distance-Aware Geometry Shader Triangle-Rejection</h3>
+    <p>Our Vegtation-LOD architecture provides each object with a minimum and maximum renderable distance, expressed as a LOD-transition point index - hence, they always occur at pre-calculated distances which can be retrieved from a set of lookup-tables for the fade-in &amp; fade-out distances of any given LOD-transition-point (they actually contain the squared distances in our implementation to speed up the comparison, but that's besides the point).</p>
+    <p>Now, when we arrive in the geometry shader for any given triangle, we can easily determine if <b>any</b> of the vertices are within the set bounds of our corresponding LOD-regions (or some are <i>behind</i> the visible LOD area and some are <i>in front</i> - to handle triangles spanning multiple LOD regions) - if they fail this check, we can simply reject the triangle outright (by returning without any calls to <mono>EmitVertex</mono> or <mono>EndPrimitive</mono>), excluding it from any further processing.</p>
+    <img src="assets/img/lod_blend0.jpg">
+    <p>This leaves us with the triangles that are either fully visible or within the blending region. For each vertex of those triangles we can now calculate the <mono>fadeInFactor</mono> of the first LOD region and <mono>fadeOutFactor</mono> of the last LOD region. Those fade factors are now valid to be interpolated barycentricly into the fragment shader.</p>
+    <p>As meshes may span multiple LOD-barriers we have to consider even &amp; odd transition boundaries separately, as - depending on which side of the LOD-barrier we are, when entering a blending region - we need to either <b>keep</b> or <b>reject</b> the fragment with a gradual increase (or decrease) of rejection likelyhood the further we step into the transition region.</p>
+    <p>This leaves us with nicely transitioning vegetation meshes. The same principle can easily be applied when meshes are rendered into light depth buffers to achieve matching smoothly interpolating LOD shadows (the camera position to calculate the world-space vertex distances from does <b>not</b> become the light position here, but remains as the player camera position).</p>
+  </entry>
+
+  <entry class="green">
+    <img class="header" src="assets/img/sshad0.jpg" />
+    <h2>Vegetation LOD Architecture</h2>
+    <p>Using meshes with different levels of fidelity to represent the same object is a common technique in modern rendering engines (usually referred to as just LODs). However, this doesn't translate nicely towards a generic vegetation rendering system, as e.g. a field of singular grass bushes would preferrably be represented by one big grass billboard from afar, and whereas the individual leaves of trees may be relevant up-close they're certainly not <i>individually</i> relevant from afar, but should rather be captured by a larger mesh representing all the leaves (at least of a singular branch) - and eventually even the entire tree should be able to merge into a singular billboard.</p>
+    <p>One would assume, that this means that vegetation LODs can at least be hierarchical - so that a tree would be anything from a billboard to a high-fidelity model with each leaf &amp; branch being represented by detailed meshes - which is <i>possible</i>, but certainly not desirable:</p>
+    <p>Firstly, it would mean that for each <i>kind</i> of tree, only one configuration of branches and leaves would be the legitimate high-resolution representation (which would be either very inefficient, or very boring), but also - an example that represents the problem in more severity - if we have a meadow that spans an area including a sharp cliff, we can't place our mega-grass element at the top (as otherwise the high-fidelity version would not have any grass at the bottom of the meadow) nor at the bottom (opposite problem) nor in the middle (not correct in any case).</p>
+    <p>This means that our vegetation LOD Architecture needs to consist of separately specified levels of detail, to allow maximum flexibility for tree configurations and complex landscapes. And - in order to make separation of LODs by <i>distance</i> possible, individual elements need to allow specifying <i>maximum</i> and <i>minimum</i> levels they match with (in order to not require splitting up large meshes when they get too close, but are perfectly sufficient in detail even at a distance). This can be further improved by adding the option to support "spawning" lower LODs from arbitrary LOD levels at known starting points, to reduce duplication of common mesh arrangements.</p>
+  </entry>
+
+  <entry class="blue">
+    <img class="header" src="assets/img/world_space_hashing.jpg" />
+    <h2>Shared Texture-Streaming Architecture</h2>
+    <p>Adding vegetation objects as a separate entity type to render objects into the engine - as they require different types of attributes to be associated with the models - leaves us with a challenge:</p><p>Our existing texture-streaming architecture is currently targeted towards gathering only <i>render object</i> textures (and updating the corresponding gpu resources pointing to them), but it wouldn't make sense to entirely duplicate this functionality for vegetation objects - and unifying the behavior across different types also scales much better with adding even more different types of rendered objects in the future (it also allows for using a single texture across different <i>types</i> of objects).</p>
+    <h3>Resource Loading Journey</h3>
+    <p>To illustrate the process, let's have a look at the different stages which need to be completed before a texture can be rendered to a certain type of rendered object:</p>
+    <ul>
+      <li>A Chunk with different types of render objects is added to the renderer</li>
+      <li>Basic information about the associated meshes is retrieved (Extents, Mesh File ID, Texture File ID, etc.)</li>
+      <li>The data-chunk with generic information is uploaded to the GPU</li>
+      <li>When the upload is completed, the chunk can be forwarded to the culling compute shader</li>
+      <li>If a certain bounding box is considered visible by the culling compute shader, it's associated object's visible counter will be incremented (for the relevant LOD, if applicable)</li>
+      <li>On the next frame the CPU-side iterates over all elements contained in the pools of all rendered object types, finds the ones that are unloaded, but have been referenced on the GPU side and enqueues them into the "Please Load" queue. The objects are now marked as "requested"</li>
+      <li>If load-capacity is available the request for the corresponding model &amp; texture is enqueued to the asset-query system</li>
+      <li>The model or texture is asynchronously loaded from disk, decompressed &amp; converted to a usable format</li>
+      <li>The asset-query handle is checked for completion, if completed, the resources are collected by the renderer-streamer</li>
+      <li>The required resources are allocated for storing the asset on the GPU</li>
+      <li>The Asset-Data upload to the allocated resource is enqueued, and the corresponding upload-handle is associated with the rendered object / texture data</li>
+      <li>When iterating the objects at the beginning of the frame for unloaded visible objects &amp; the "requested" flag is set, we check if there's an associated upload handle and check for upload completion</li>
+      <li>If the resource is a texture and the upload is completed, we register the new texture (with the associated texture sampler) in our bindless texture array</li>
+      <li>We then update the object's reference to no longer point to unloaded texture / mesh data, but the newly loaded resource.</li>
+      <li>Now, when the cull compute-shader finds those instances to still be visible (whose objects now point to loaded resources), it creates draw calls for each of the matching instances</li>
+      <li>Finally, the meshes are drawn to the screen with the freshly loaded mesh &amp; texture data</li>
+    </ul>
+    <h3>Request States</h3>
+    <p>For textures specifically, this means that - from the perspective of the renderer-streamer - we can split the asset loading process into two phases with various sub-states each:</p>
+    <h4>CPU Load Request</h4>
+    <ul>
+      <li>Awaiting an Asset Query Slot</li>
+      <li>Awaiting Asset Data from a running Asset Query</li>
+      <li>Alternatively: Awaiting Completion of a different CPU Load Request (created by a different object, but using the same texture)</li>
+      <li>Ready (the request will continue as a <i>GPU Update Request</i>)</li>
+    </ul>
+    <h4>GPU Update Request</h4>
+    <ul>
+      <li>Allocating the Texture</li>
+      <li>Enqueueing the Texture Upload</li>
+      <li>Awaiting completion of the Texture Upload</li>
+      <li>Setting the texture to the Bindless Texture Array</li>
+      <li>Setting the Texture Array Index to the Objects (making it available to the renderer)</li>
+    </ul>
+    <h3>State Handling</h3>
+    <p>With this rough overview of the procedure of loading textures in mind, let's consider the following cases and how they're being handled now in a bit more detail: (Steps performed as part of the asset-query subsystem are displayed with <gray>reduced focus</gray>)</p>
+    <h4>A newly loaded object requires an <u>unloaded</u> texture</h4>
+    <p>In this case, we simply follow the steps detailed above:</p>
+    <ul>
+      <li>Enqueue Texture asset request &rarr; dequeue &rarr; forward request, store handle <gray>&rarr; process request &rarr; load asynchronously &rarr; mark ready</gray></li>
+      <li>Allocate Texture &rarr; request GPU upload &amp; store upload-handle &rarr; upload completes</li>
+      <li>Set texture reference to bindless texture array</li>
+      <li>Update entry in the Render- / Vegetation-Object Pool with the bindless texture array index</li>
+    </ul>
+    <h4>A newly loaded object requires a texture which is already <u>requested</u></h4>
+    <ul>
+      <li>Store a dependent texture request with the type &amp; index of the corresponding object</li>
+      <li>Every frame, we check if the underlying object has advanced its state from &quot;Waiting for Asset Request&quot;</li>
+      <li>If the Object has been advanced, we enqueue our GPU Update Request pointing to the upload handle</li>
+      <li>When the upload has been completed, if the texture hasn't been set to the Bindless Texture Array yet, we perform this ourselves (can happen if uploads complete whilst iterating GPU Update Requests)</li>
+      <li>Finally, we update the corresponding entity in the associated GPU object pool to point to the index in the Texture Array</li>
+    </ul>
+    <h4>A newly loaded object requires a texture which is already <u>uploading</u></h4>
+    <ul>
+      <li>We merely need to insert a GPU Update Request for the corresponding object</li>
+      <li>When the associated upload handle has been marked completed, if the texture hasn't been set to the Bindless Texture Array yet, we perform this ourselves</li>
+      <li>Finally, we update the entity in the associated GPU object pool to point to it</li>
+    </ul>
+    <h4>A newly loaded object requires a texture which is already <u>available</u></h4>
+    <ul>
+      <li>Here, we only need to update the object's entity in the associated GPU object pool to point to the corresponding index in the Bindless Texture Array</li>
+    </ul>
+  </entry>
 
   <entry class="blue">
     <img class="header" src="assets/img/sshad0.jpg" />

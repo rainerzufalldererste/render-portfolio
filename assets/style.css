@@ -126,7 +126,7 @@ img.small {
   width: 60%;
 }
 
-code {
+code, table.code-diff {
   font-family: Consolas, monospace;
   background: #00000070;
   padding: 5pt 15pt;
@@ -137,14 +137,18 @@ code {
   margin: 10pt 0;
 }
 
-entry.blue code {
+entry.blue code, entry.blue table.code-diff {
   border-left-color: #526b75;
   color: #dce5ea;
 }
 
-entry.red code {
+entry.red code, entry.red table.code-diff {
   border-left-color: #756052;
   color: #eae4dc;
+}
+
+table.code-diff {
+  padding: 5pt 7.5pt;
 }
 
 mono {
@@ -272,6 +276,54 @@ tr:nth-child(2n) {
   background-color: #fff1;
 }
 
+table.code-diff tr td {
+  width: 50vw;
+  text-align: left;
+  padding-left: 2ch;
+}
+
+table.code-diff tr:nth-child(2n) {
+  background-color: initial;
+}
+
+table.code-diff tr.diff td:nth-child(1) {
+  color: #cd9d92;
+  text-shadow: #ff8859 0 0 1pt;
+  padding-left: 0em;
+}
+
+table.code-diff tr.diff td:nth-child(2) {
+  color: #d1ec96;
+  text-shadow: #c3ff59 0 0 1pt;
+  padding-left: 0em;
+}
+
+table.code-diff tr.diff td:nth-child(1)::before {
+  content: '-';
+  color: #cd9d92;
+  text-shadow: #ff8859 0 0 1pt;
+}
+
+table.code-diff tr.diff td:nth-child(2)::before {
+  content: '+';
+  color: #d1ec96;
+  text-shadow: #c3ff59 0 0 1pt;
+}
+
+table.code-diff tr.diff td b {
+  font-weight: normal;
+  border-radius: 2pt;
+  padding: 0pt 2pt;
+}
+
+table.code-diff tr.diff td:nth-child(1) b {
+  background: #803232;
+}
+
+table.code-diff tr.diff td:nth-child(2) b {
+  background: #406d2b;
+}
+
 th.sub {
   text-align: left;
   font-weight: bold;
@@ -281,6 +333,10 @@ th.sub {
 
 th {
   background-color: #0002;
+}
+
+code comment {
+  opacity: 50%;
 }
 
 /* iphone X , XS, 11 Pro */

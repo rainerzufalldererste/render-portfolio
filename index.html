@@ -44,7 +44,7 @@
       <br/>const quaternion rot = segment_quaternion(up, rotation_offset);
       <br/>const vec3f point = center + matrix_from_quaternion(rot).transform(vec3f(radius, 0, 0));
     </code>
-    <p>Now, with the free parameter <mono>rotation_offset</mono>, we can gather the diff from our observed location vs the values <mono>[0 ~ ]&tau;</mono> to find the appropriate value. Rather than blindly trying to iterate over the given value range, we can sample the difference function at a bunch of fixed positions in this range - let's say every <mono>&frac12;&pi;</mono> - and then grab the two values surrounding the value surrounding the lowest difference (<mono>n_min - &frac12;&pi;</mono>, <mono>n_min + &frac12;&pi;</mono>, to account for the spherical implications of those factors) and use <a href="https://en.wikipedia.org/wiki/Brent%27s_method">Brent's Method</a> to find the minimum in the provided range. As there are <mono>vertex_count</mono> symemtrical variants of each of those matches, we can even reduce the offset further via the following:</p>
+    <p>Now, with the free parameter <mono>rotation_offset</mono>, we can gather the diff from our observed location vs the values <mono>[0 ~ ]&tau;</mono> to find the appropriate value. Rather than blindly trying to iterate over the given value range, we can sample the difference function at a bunch of fixed positions in this range - let's say every <mono>&frac12;&pi;</mono> - and then grab the two values surrounding the value with the lowest error (<mono>n_min - &frac12;&pi;</mono>, <mono>n_min + &frac12;&pi;</mono>, to account for the spherical implications of those factors) and use <a href="https://en.wikipedia.org/wiki/Brent%27s_method">Brent's Method</a> to find the minimum in the provided range. As there are <mono>vertex_count</mono> symemtrical variants of each of those matches, we can even reduce the offset further via the following:</p>
     <code>
       symmetry_angle = &tau; / vertex_count;
       <br/>rotation_offset = fmodf(rotation_offset, symmetry_angle);
@@ -55,7 +55,7 @@
     <br/>
     <h3>Assembling Meshes</h3>
     <p>Starting with the pre-analyzed segments, we can easily categorize them by the significant opening's number of vertices (we'll pick the largest one - or the one that's closes to <mono>[0, 0, 0]</mono> as the &quot;significant&quot; or &quot;base&quot;-opening). Now, we start with a randomly picked segment of a chosen category.</p>
-    <p>To continue, let's first zoom out a bit: Each of the segments is defined in its own segment-space (the direction the significant opening points in, the scale the opening and its rotation offset). Additionally, there's a local position, rotation &amp; scale at each of the openings of any placed segment in world-space. These two factors have to be considered separately when generating seamless segments. Let's consider those two factors separately, in order to grow our combined mesh in world-space, but correct for the local transforms of each segment, when handling it.</p>
+    <p>To continue, let's first zoom out a bit: Each of the segments is defined in its own segment-space (the direction the significant opening points to, the scale of the opening and its rotation offset). Additionally, there's a local position, rotation &amp; scale at each of the openings of any placed segment in world-space. These two factors have to be considered separately when generating seamless segments. Let's consider those two factors separately, in order to grow our combined mesh in world-space, but correct for the local transforms of each segment, when handling it.</p>
     <p>Now, at any given segment, we wanna proceed as follows:</p>
     <ul>
       <li>First, we consider only the category specified by the previous opening (or in the case of the first segment, which has been provided to us via a starting parameter) and select one of the matching openings.</li>
@@ -63,7 +63,7 @@
         <p>Now, we calculate the per-segment correction transform via
         <br><mono>(rotation_x(&pi;) * segment_quaternion(segment.base.up, segment.base.rotation_offset)).Inverse()</mono>
         <br>(see the implementation of <mono>segment_quaternion</mono> above)</p>
-        <p>Note: Whether we choose to rotate along the x- or y- axis is pretty arbitrary, all we want to achieve is a "flip" along the up/dpwn direction (to have the opening's <i>up</i> direction to pointing <i>down</i> instead, directly <i>into</i> the previous opening's <i>up</i> vector). This could easily be achieved via applying a scale of <mono>-1</mono> on th z axis, but as our render instance format doesn't support non-uniform scaling, we've chosen to rotate instead.</p>
+        <p>Note: Whether we choose to rotate along the x- or y-axis is pretty arbitrary, all we want to achieve is a "flip" along the up/down direction (to have the opening's <i>up</i> direction to pointing <i>down</i> instead, directly <i>into</i> the previous opening's <i>up</i> vector). This could easily be achieved via applying a scale of <mono>-1</mono> on th z axis, but as our render instance format doesn't support non-uniform scaling, we've chosen to rotate instead.</p>
       </li>
       <li>Then we place the mesh at the uninhabited opening (or the start position, in case of the first segment) - using our correction transform to align it with the corresponding opening.
         <code>
@@ -107,7 +107,7 @@
     <p>As the motion vectors usually gradually shift over flat surfaces - especially singular triangles - it's in many cases very accurate to just calculate the movement direction in the vertex or geometry shader, to spare the fragment shader from costly per-pixel calculations of information identical or near-identical to what would've been achieved via non-perspective-corrected barycentric interpolation. This works really well for most cases as perspective distortion is usually negligable, however, there's one notable exception:</p>
     <p>For exceptionally large triangles, either current or past frame vertices may land significantly off screen - potentially even beyond of the clipping plane. This makes the resulting interpolated values utterly incorrect as they massively overestimate the motion vectors of corresponding pixels.</p>
     <h3>Vertex Shader Aspect</h3>
-    <p>Now, rather than always calculating movement vectors always per pixel to address this, we can build a detection mechanism in the vertex shader, which allows us to conditionally enable per-pixel calculations if necessary:</p>
+    <p>Now, rather than always calculating movement vectors per pixel to address this, we can build a detection mechanism in the vertex shader, which allows us to conditionally enable per-pixel calculations if necessary:</p>
     <code>
       vec4 pos4 = VP * world_pos; <comment>// homogeneous current frame on-screen position</comment>
       <br>vec4 prevPos4 = prevVP * prev_world_pos; <comment>// homogeneous previous frame on-screen position</comment>

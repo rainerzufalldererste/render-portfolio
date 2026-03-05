@@ -322,7 +322,7 @@
       <li>When iterating the objects at the beginning of the frame for unloaded visible objects &amp; the "requested" flag is set, we check if there's an associated upload handle and check for upload completion</li>
       <li>If the resource is a texture and the upload is completed, we register the new texture (with the associated texture sampler) in our bindless texture array</li>
       <li>We then update the object's reference to no longer point to unloaded texture / mesh data, but the newly loaded resource.</li>
-      <li>Now, when the cull compute-shader finds instances to still be visible (whose objects now point to now loaded resources), it creates draw calls for each of the matching instances</li>
+      <li>Now, when the cull compute-shader finds those instances to still be visible (whose objects now point to loaded resources), it creates draw calls for each of the matching instances</li>
       <li>Finally, the meshes are drawn to the screen with the freshly loaded mesh &amp; texture data</li>
     </ul>
     <h3>Request States</h3>

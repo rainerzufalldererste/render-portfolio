@@ -18,6 +18,8 @@
     <p>To get such refractions working, we require the addition of mesh categories, in order to selectively re-render parts of the scene (the ing meshes). Those categories are associated with the render object LOD data, hence can be accessed by the occlusion-culling setup to selectively push corresponding instance draw calls into a separate buffer (offset).</p>
     <p>Now, rather than simply rendering transparent geometry to the G-Buffer, like all the other objects (which would make it impossible to apply deferred shading to the occluded objects) - and writing to the same depth buffer as those would pollute our occlusion culling HZB with transparent meshes, which would reveal the culling procedure - we draw this transparent geometry to a separate transparency-g-buffer (Color, Transparency, Normal, Roughness, IOR + <i>separate</i> depth) using backface-culling and then we draw those meshes once more to a depth-only framebuffer using frontface-culling. This leaves us with the entry & exit depth of the transparent surfaces at every pixel, as well as the corresponding deferred shading information.</p>
     <p>Now, after we've rendered all of our <i>usual</i> suspects, we apply regular deferred shading & GI to them. The resulting texture is then blit to a lower resolution & quality texture, and blurred mips are computed. This leaves us with the view that could possibly be visible through our transparent surfaces.</p>
+    <img src="assets/img/ssrefract1.jpg"/>
+    <img src="assets/img/ssrefract2.jpg"/>
   </entry>
   
   <entry class="blue">

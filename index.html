@@ -17,10 +17,53 @@
     <p>A recently encountered rough glass shader sparked ideas of how to implement not just simple rough translucence, but rather full screen space refraction in a real-time rendering context. This effect is rarely prominently featured, but is able to produce some stunning visuals - especially, when combined with strong light sources & variable surface roughness leading to variably blurry translucence.</p>
     <p>To get such refractions working, we require the addition of mesh categories, in order to selectively re-render parts of the scene (the ing meshes). Those categories are associated with the render object LOD data, hence can be accessed by the occlusion-culling setup to selectively push corresponding instance draw calls into a separate buffer (offset).</p>
     <p>Now, rather than simply rendering transparent geometry to the G-Buffer, like all the other objects (which would make it impossible to apply deferred shading to the occluded objects) - and writing to the same depth buffer as those would pollute our occlusion culling HZB with transparent meshes, which would reveal the culling procedure - we draw this transparent geometry to a separate transparency-g-buffer (Color, Transparency, Normal, Roughness, IOR + <i>separate</i> depth) using backface-culling and then we draw those meshes once more to a depth-only framebuffer using frontface-culling. This leaves us with the entry & exit depth of the transparent surfaces at every pixel, as well as the corresponding deferred shading information.</p>
-    <p>Now, after we've rendered all of our <i>usual</i> suspects, we apply regular deferred shading & GI to them. The resulting texture is then blit to a lower resolution & quality texture, and blurred mips are computed. This leaves us with the view that could possibly be visible through our transparent surfaces.</p>
-    <img src="assets/img/ssrefract1.jpg"/>
-    <img src="assets/img/ssrefract2.jpg"/>
+    <p>Now, after we've rendered all of our <i>usual</i> suspects, we apply regular deferred shading & GI to them. The resulting texture is then blit to a lower resolution & quality texture, and blurred mips are computed.</p>
+    <p>This leaves us with the following slice through the rendered scene geometry (when observed from above, so the further up, the futher away a pixel is from the camera, left to right is a flattened view of what's actually on screen)</p>
     <img class="small" src="assets/img/ssrefract3.png"/>
+    <p class="descript">Yellow: Transparent Front-Face Depth<br/>Turquoise: Transparent Back-Face Depth<br/>Dark Blue: Scene Depth</p>
+    <br/>
+    <h2>Tracing Refractions</h2>
+    <p>Having the information about the depth of the back- & front-face doesn't give us a complete picture of the encompassed geometry (essential parts of the mesh may be covered by a stray backface & we only have knowledge about the information that's actually on-screen), but it gives us a decent approximation of it, if we simply assume that the entire area between front- & back-face is the <i>only</i> range covered by our transparent object for a given pixel.</p>
+    <p>With an IOR of 1, we'd even be able to correctly trace though the given geometry - as the rays would simply pass through the mesh unaffected by any refraction angles (so, <sym>R</sym> would continue towards <sym>B&deg;</sym>), however, if an IOR != 1 comes into the picture, rather than being able to continue through to <sym>B&deg;</sym>, we wanna continue via <sym>R'</sym> to <sym>B</sym> instead.</p>
+    <p>To achieve this, we unfortunately can't simply read from a known location, but we'll have to trace our way there. Naively going step-by-step however would be hugely inefficient, so we take the distance <sym>FB</sym> as a reference point along the direction of <sym>R'</sym> and use an adaptive Newton-Approach to narrow in on the actual view-space intersection point <sym>B</sym> on the back-face depth and <sym>R'</sym>.</p>
+    <code>
+      <comment>// let's take half the reference-depth as an initial guess</comment>
+      <br>vec3 traceDir = traceStart * (referenceZ / traceStart.z) * 0.5;
+      <br>for (int it = 0; it &lt; MaxNewtonSteps; it++)
+      <br/>{
+      <br/>&emsp;&emsp;vec3 viewPos = traceStart + traceDir;
+      <br/>&emsp;&emsp;<comment>// ...</comment>
+      <br/>&emsp;&emsp;
+      <br/>&emsp;&emsp;if (backFaceDepth &lt; sceneDepth) <comment>// if inside transparent obj</comment>
+      <br/>&emsp;&emsp;{
+      <br/>&emsp;&emsp;&emsp;&emsp;if (nextPos.z &lt; to_screen_depth(viewPos.z))
+      <br/>&emsp;&emsp;&emsp;&emsp;{
+      <br/>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;<comment>// new best hit found!</comment>
+      <br/>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;traceStart = viewPos;
+      <br/>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;<comment>// ...</comment>
+      <br/>&emsp;&emsp;&emsp;&emsp;}
+      <br/>&emsp;&emsp;&emsp;&emsp;else <comment>// sample hit behind expected ray depth: let's narrow in on previous best guess</comment>
+      <br/>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;traceDir *= 0.5;
+      <br/>&emsp;&emsp;}
+      <br/>&emsp;&emsp;else <comment>// if outside: let's narrow in on previous best guess</comment>
+      <br/>&emsp;&emsp;&emsp;&emsp;traceDir *= 0.5;
+      <br/>}
+    </code>
+    <p>This method is great at finding the approximate area of the intersection, but it'll still result in a jagged appearance even with considerably high values of <mono>MaxNewtonSteps</mono>:</p>
+    <img class="small" src="assets/img/ssrefract4.jpg"/>
+    <p>To alleviate - or sometimes even outright resolve this, we can compute the intersection between the screen depth of the last two <mono>viewPos</mono> and <mono>backFaceDepth</mono> values (and bound the resulting factor to something like <mono>-0.5 ~ 1.5</mono> to restrict the intersection to reasonable values). This produces <b>very</b> good results (especially for flat surfaces) even with fairly low values for <mono>MaxNewtonSteps</mono> (we chose 9 for a decent balance between performance and accuracy). If we simply sample from the resulting direction of the environment-map (using surface roughness at <sym>F</sym> to pick a suitable mip layer) with varying number of samples, we get:</p>
+    <img src="assets/img/ssrefract1.jpg"/>
+    <p class="descript">
+      Resulting image with N=<mono>MaxNewtonSteps</mono><br>
+      Top Row: Values &lt;= 9<br>
+      Bottom Row: Values &gt;= 9
+    </p>
+    <p>If we compliment this with environment-map samples for first reflection along <sym>R*</sym> (interpolating via Schlick's approximation for the Fresnel reflectance), this already leads to <i>very</i> impressive looking results. Although, obviously there's not just external reflections to deal with, but also <i>internal</i> reflections. There are technically infinitely many of them, but again, the most significant contribution can be somewhat easily approximated from the first internal reflection along <sym>R'*</sym> by reflecting <sym>R</sym> along the normal at <sym>B</sym>.</p>
+    <p>Unfortunately, we don't have the normal at the backface though - we only wrote the <i>depth</i>, so we'll have to resurrect the approximate normal by reading two samples in screen space from the neighboring pixels of our target depth, as we're easily able to calculating a normal from this. Same reading from environment map in the direction of <sym>R'*</sym>and interpolating the result with the refracted color via Schlick's approximation as previously and we're one step closer to the final result.</p>
+    <p>This works well with higher IOR, but for IOR = 1, the missing scene geometry from the environment-map is very apparent. So, let's use a slightly altered version of the screen-space tracing method from above to complete the journey and trace along <sym>R''</sym> for <sym>S</sym>, taking the distance <sym>BS&deg;</sym> as our reference length. The most annoying case to handle here is, that for certain pixels, the resulting depth reaches the far-plane, which may not lend itself well to the final interpolation stage. Just like before, we take the surface roughness at <sym>F</sym> to read from the correspondingly blurred version of the shaded scene.</p>
+    <br>
+    <h2>All the colors of Dispersion</h2>
+    <img src="assets/img/ssrefract2.jpg"/>
   </entry>
   
   <entry class="blue">
